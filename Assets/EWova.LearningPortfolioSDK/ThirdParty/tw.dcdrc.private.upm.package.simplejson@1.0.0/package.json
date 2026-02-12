@@ -1,0 +1,18 @@
+{
+  "author": "DCDRC",
+  "description": "2022-08-03\nhttps://github.com/Bunny83/SimpleJSON",
+  "displayName": "DCDRC Package SimpleJSON",
+  "keywords": [
+    "DCDRC",
+    "School"
+  ],
+  "license": "MIT",
+  "name": "tw.dcdrc.private.upm.package.simplejson",
+  "repository": {
+    "type": "git",
+    "url": "git+http://dcdrc:8080/dcdrc/unitynpm"
+  },
+  "unity": "2021.3",
+  "unityRelease": "0f1",
+  "version": "1.0.0"
+}

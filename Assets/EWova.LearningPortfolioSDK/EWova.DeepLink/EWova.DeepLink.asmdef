@@ -1,0 +1,17 @@
+{
+    "name": "EWova.DeepLink",
+    "rootNamespace": "",
+    "references": [
+        "GUID:0b34836ace6cdc74d8185cadaf082ad5",
+        "GUID:d21b059569cc47c41a2be5296fdf6432"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

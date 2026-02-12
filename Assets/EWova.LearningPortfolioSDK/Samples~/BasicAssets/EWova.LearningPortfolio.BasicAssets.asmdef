@@ -1,0 +1,19 @@
+{
+    "name": "EWova.LearningPortfolio.BasicAssets",
+    "rootNamespace": "",
+    "references": [
+        "GUID:0b34836ace6cdc74d8185cadaf082ad5",
+        "GUID:cfb63a07c41d6cd48ab74eef0354158d",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:6055be8ebefd69e48b49212b09b47b2f"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
