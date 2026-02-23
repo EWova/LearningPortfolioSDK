@@ -13,6 +13,11 @@ namespace EWova.DeepLink.Editor
 
         public void OnPostGenerateGradleAndroidProject(string path)
         {
+            var config = Config.LoadOrDefault();
+
+            if (config == null)
+                return;
+
             string manifestPath = Path.Combine(path, "src", "main", "AndroidManifest.xml");
             if (!File.Exists(manifestPath))
             {
@@ -26,11 +31,11 @@ namespace EWova.DeepLink.Editor
             XmlNamespaceManager nsManager = new XmlNamespaceManager(doc.NameTable);
             nsManager.AddNamespace("android", "http://schemas.android.com/apk/res/android");
 
-            AddDeepLinkScheme(doc, Config.MyAppScheme);
+            AddDeepLinkScheme(doc, config.MyAppScheme);
 
             doc.Save(manifestPath);
 
-            Debug.Log($"已完成將你的 DeepLink {Config.MyAppScheme}:// 加入到 AndroidManifest.xml");
+            Debug.Log($"已完成將你的 DeepLink {config.MyAppScheme}:// 加入到 AndroidManifest.xml");
         }
 
         public static void AddDeepLinkScheme(XmlDocument doc, string scheme)

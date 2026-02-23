@@ -28,8 +28,13 @@ namespace EWova.DeepLink
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         private static void AfterAssembliesLoaded()
         {
+            var config = Config.LoadOrDefault();
+
+            if (config == null)
+                return;
+
             s_schemeNamePool = new(StringComparer.FromComparison(SchemeStringComparison)); // editor 跳過 reload domain 不會自動釋放 static 變數
-            Default = Registry(Config.MyAppScheme);
+            Default = Registry(config.MyAppScheme);
         }
 
 

@@ -8,23 +8,32 @@ namespace EWova.DeepLink
 {
     public static class AutoUriSchemeBinder
     {
-        const string SCHEME = Config.MyAppScheme;
         const string REG_PATH_FMT = @"Software\Classes\{0}\shell\open\command";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void AutoRegisterOnStartup()
         {
+            var config = Config.LoadOrDefault();
+
+            if(config == null)
+            {
+                UnityEngine.Debug.LogWarning("未找到 DeeplinkConfig 資源，無法自動註冊 URI Scheme。請確保已創建 EWova/Deeplink/Create Config");
+                return;
+            }
+
+            string scheme = config.MyAppScheme;
+
             string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
-            string regExe = GetRegisteredExePath(SCHEME);
+            string regExe = GetRegisteredExePath(scheme);
 
             if (string.IsNullOrEmpty(regExe) || !PathsEqual(regExe, exePath))
             {
-                RegisterUriScheme(SCHEME, exePath);
-                UnityEngine.Debug.Log($"URI Scheme '{SCHEME}://' 已更新為：{exePath}");
+                RegisterUriScheme(scheme, exePath);
+                UnityEngine.Debug.Log($"URI Scheme '{scheme}://' 已更新為：{exePath}");
             }
             else
             {
-                UnityEngine.Debug.Log($"URI Scheme '{SCHEME}://' 指向正確：{exePath}");
+                UnityEngine.Debug.Log($"URI Scheme '{scheme}://' 指向正確：{exePath}");
             }
         }
 
