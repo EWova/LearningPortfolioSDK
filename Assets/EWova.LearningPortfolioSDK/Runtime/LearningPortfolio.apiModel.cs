@@ -13,6 +13,7 @@ namespace EWova.LearningPortfolio
     {
         public enum UsingDeviceList : int
         {
+            Auto = -2,
             // 如果有其他裝置需求請到官網裝置列表查詢裝置ID
             Editor = -1,
             Unknown = 0,
@@ -36,7 +37,7 @@ namespace EWova.LearningPortfolio
             [EnumInt(typeof(UsingDeviceList))]
             public int UsingDeviceId = 0;
 
-            public static LoginRequestData Create()
+            public static LoginRequestData CreateDefault()
             {
                 LoginRequestData data = new();
                 UsingDeviceList device;

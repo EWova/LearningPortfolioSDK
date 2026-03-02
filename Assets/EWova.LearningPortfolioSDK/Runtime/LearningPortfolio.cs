@@ -288,7 +288,9 @@ namespace EWova.LearningPortfolio
                 return;
             }
 
-            requestData ??= LoginRequestData.Create();
+            requestData ??= LoginRequestData.CreateDefault();
+            if (requestData.UsingDeviceId == (int)UsingDeviceList.Auto)
+                requestData.UsingDeviceId = (int)DeviceHelper.GetCurrentDevice();
 
             UniTask.Void(async () =>
             {
