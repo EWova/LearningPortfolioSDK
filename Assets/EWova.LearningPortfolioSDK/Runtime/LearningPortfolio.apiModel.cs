@@ -35,69 +35,12 @@ namespace EWova.LearningPortfolio
         {
             [Tooltip("目前使用裝置追蹤ID，如果有其他裝置需求請到官網裝置列表查詢")]
             [EnumInt(typeof(UsingDeviceList))]
-            public int UsingDeviceId = 0;
+            public int UsingDeviceId = (int)UsingDeviceList.Auto;
 
             public static LoginRequestData CreateDefault()
             {
                 LoginRequestData data = new();
-                UsingDeviceList device;
-                switch (Application.platform)
-                {
-                    case RuntimePlatform.WindowsEditor:
-                    case RuntimePlatform.OSXEditor:
-                    case RuntimePlatform.LinuxEditor:
-                        device = UsingDeviceList.Editor;
-                        break;
-
-                    case RuntimePlatform.WebGLPlayer:
-                        if (IsXRRunning())
-                            device = UsingDeviceList.Web_VR;
-                        else
-                            device = UsingDeviceList.Web;
-                        break;
-
-                    case RuntimePlatform.Android:
-                        if (IsXRRunning())
-                        {
-                            var modelName = SystemInfo.deviceModel.ToLower();
-                            if (modelName.Contains("quest") || modelName.Contains("oculus"))
-                                device = UsingDeviceList.AllInOne_Meta_Quest;
-                            else if (modelName.Contains("vive") || modelName.Contains("htc"))
-                                device = UsingDeviceList.AllInOne_HTC_VIVE;
-                            else
-                                device = UsingDeviceList.AllInOne;
-                        }
-                        else
-                            device = UsingDeviceList.Android;
-                        break;
-
-                    case RuntimePlatform.OSXPlayer:
-                        device = UsingDeviceList.macOS;
-                        break;
-                    case RuntimePlatform.IPhonePlayer:
-                        device = UsingDeviceList.iOS;
-                        break;
-#if UNITY_2023_2_OR_NEWER || UNITY_2022_3
-                    case RuntimePlatform.VisionOS:
-                        device = UsingDeviceList.visionOS;
-                        break;
-#endif
-
-                    case RuntimePlatform.LinuxPlayer:
-                        device = UsingDeviceList.Linux;
-                        break;
-
-                    case RuntimePlatform.WindowsPlayer:
-                        if (IsXRRunning())
-                            device = UsingDeviceList.Windows_VR;
-                        else
-                            device = UsingDeviceList.Windows;
-                        break;
-
-                    default:
-                        device = UsingDeviceList.Unknown;
-                        break;
-                }
+                UsingDeviceList device = UsingDeviceList.Auto;
                 data.UsingDeviceId = (int)device;
                 return data;
             }
