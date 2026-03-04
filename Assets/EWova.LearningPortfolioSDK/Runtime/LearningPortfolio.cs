@@ -323,14 +323,16 @@ namespace EWova.LearningPortfolio
                                     UsingDeviceId = requestData.UsingDeviceId
                                 }
                             );
+
+                            IsLoginProcessing = false;
+                            m_loginUserData = loginUserData;
+
                             m_projectUsageRecordTrackingId = record.TrackingID;
 
                             if (KeepLoginUsageRecordHeartbeatCoro != null)
                                 StopCoroutine(KeepLoginUsageRecordHeartbeatCoro);
                             KeepLoginUsageRecordHeartbeatCoro = StartCoroutine(KeepLoginUsageRecordHeartbeat());
 
-                            IsLoginProcessing = false;
-                            m_loginUserData = loginUserData;
                             OnUserLogin.InvokeSafely(m_loginUserData, @throw: ex => Debug.LogException(ex, "OnUserLogout handler exception:"));
                             onSuccess?.Invoke();
                         }
@@ -370,8 +372,8 @@ namespace EWova.LearningPortfolio
                     yield break;
                 }
 
+                yield return new WaitForSeconds(30f);
                 ProjectUsageRecordHeartbeat(m_projectUsageRecordTrackingId).Forget();
-                yield return new WaitForSeconds(60f);
             }
         }
 
