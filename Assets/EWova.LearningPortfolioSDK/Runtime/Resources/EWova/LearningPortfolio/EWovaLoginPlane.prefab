@@ -3881,6 +3881,7 @@ GameObject:
   - component: {fileID: 6229219492058455649}
   - component: {fileID: 567415866344303989}
   - component: {fileID: 522040800970328358}
+  - component: {fileID: 1522034817482395812}
   m_Layer: 5
   m_Name: EWovaLoginPlane
   m_TagString: Untagged
@@ -3924,9 +3925,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   UI: {fileID: 522040800970328358}
-  LoginRequestDataSetting:
-    UsingDeviceId: 0
   OnGameStart:
+    m_PersistentCalls:
+      m_Calls: []
+  OnLogin:
     m_PersistentCalls:
       m_Calls: []
   ReadonlySheetGuid: 
@@ -3976,6 +3978,19 @@ MonoBehaviour:
   SecondaryHighlightedColor: {r: 1, g: 1, b: 1, a: 1}
   SecondaryDisabledColor: {r: 1, g: 1, b: 1, a: 1}
   FocusInputField: {fileID: 0}
+--- !u!114 &1522034817482395812
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7566488367924335991}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2bd6d9e7e1eb8dc45a144e1e5359df8a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ActivateFixOnStart: 1
 --- !u!1 &7663233945376972211
 GameObject:
   m_ObjectHideFlags: 0
