@@ -7,6 +7,13 @@
       "dependencies": {},
       "hash": "73a63b7f672b88f7e9992f6917eb458a8cbb6fa9"
     },
+    "com.ewova.core": {
+      "version": "https://github.com/EWova/UnityPackageCore.git?path=Assets/EWova.Core",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "fb68a11427a5f2428459fec1b609fc709cca5cd4"
+    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,
