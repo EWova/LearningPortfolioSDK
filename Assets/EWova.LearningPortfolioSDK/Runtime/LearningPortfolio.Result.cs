@@ -13,6 +13,10 @@ namespace EWova.LearningPortfolio
         /// Server 端錯誤訊息，Client 端不會主動填寫，通常為非 Exception 類型的預期錯誤資訊
         /// </summary>
         public string ServerErrorMessage { get; set; }
+        /// <summary>
+        /// Client 端錯誤訊息，Client 端在捕捉到 Exception 後可以選擇性填寫，提供給開發者更友善的錯誤資訊
+        /// </summary>
+        public string ClientErrorMessage { get; set; }
         public bool IsManuallyCancel => Convert.ToInt32(FailureReason) == 2;
         public bool IsSuccess => Convert.ToInt32(FailureReason) == 0 && Exception == null;
     }
@@ -29,7 +33,7 @@ namespace EWova.LearningPortfolio
         ManuallyCancel = 2,
 
         /* 裝置錯誤 */
-        PlatformNotSupportLogin = 100,
+        PlatformNotSupportLogin = 50,
 
         /* 本地錯誤，通常是 SDK 配置問題，導致無法正常發出請求 */
         /// <summary>

@@ -35,8 +35,18 @@ namespace EWova.LearningPortfolio
 
         public readonly void EnsureValid()
         {
+            if (!IsValid(out string msg))
+                throw new ArgumentException(msg, nameof(APIKey));
+        }
+        public readonly bool IsValid(out string errorMessage)
+        {
             if (string.IsNullOrEmpty(APIKey))
-                throw new ArgumentException("API Key cannot be null or empty.", nameof(APIKey));
+            {
+                errorMessage = "API Key cannot be null or empty.";
+                return false;
+            }
+            errorMessage = null;
+            return true;
         }
     }
 
@@ -197,7 +207,21 @@ namespace EWova.LearningPortfolio
 
             s_loadedProfile = LoadOrGetProfile();
             if (s_loadedProfile == null)
-                return new CheckAvailabilityResponse() { FailureReason = CheckAvailabilityFailureReason.DefaultSettingsLoadFailed };
+            {
+                return new CheckAvailabilityResponse()
+                {
+                    FailureReason = CheckAvailabilityFailureReason.DefaultSettingsLoadFailed,
+                    ClientErrorMessage = "找不到 Resources/EWova/LearningPortfolioProfile 必要專案設定，請確認資源存在路徑正確且 API Key 正確。"
+                };
+            }
+            if (!s_loadedProfile.APISettings.IsValid(out string errorMessage))
+            {
+                return new CheckAvailabilityResponse()
+                {
+                    FailureReason = CheckAvailabilityFailureReason.DefaultSettingsLoadFailed,
+                    ClientErrorMessage = $"檢測到學習歷程 Api key 不合規範: {errorMessage} 請檢查 LearningPortfolioProfile.asset"
+                };
+            }
 
             var client = new LPApiClient(s_loadedProfile.APISettings, logger: ApiClientLogger);
 
@@ -212,10 +236,10 @@ namespace EWova.LearningPortfolio
             }
 
             CheckAvailabilityResponse checkAvailabilityResponse = new();
-            // 目前僅能透過深連結進行授權登入，未來可能會開放其他登入方式..?
             if (!EwovaAuthManager.Instance.IsSupportAuthorizeViaDeepLink)
             {
                 checkAvailabilityResponse.FailureReason = CheckAvailabilityFailureReason.PlatformNotSupportLogin;
+                checkAvailabilityResponse.ClientErrorMessage = "當前平台不支援使用系統瀏覽器進行 DeepLink 跳轉授權，無法使用學習歷程服務。";
                 client.Dispose();
                 return checkAvailabilityResponse;
             }
@@ -242,7 +266,22 @@ namespace EWova.LearningPortfolio
 
             s_loadedProfile = LoadOrGetProfile();
             if (s_loadedProfile == null)
-                return new ConnectResponse() { FailureReason = ConnectFailureReason.CheckAvailability_DefaultSettingsLoadFailed };
+            {
+                return new ConnectResponse()
+                {
+                    FailureReason = ConnectFailureReason.CheckAvailability_DefaultSettingsLoadFailed,
+                    ClientErrorMessage = "找不到 Resources/EWova/LearningPortfolioProfile 必要專案設定，請確認資源存在路徑正確且 API Key 正確。"
+                };
+            }
+
+            if (!s_loadedProfile.APISettings.IsValid(out string errorMessage))
+            {
+                return new ConnectResponse()
+                {
+                    FailureReason = ConnectFailureReason.CheckAvailability_DefaultSettingsLoadFailed,
+                    ClientErrorMessage = $"檢測到學習歷程 Api key 不合規範: {errorMessage} 請檢查 LearningPortfolioProfile.asset"
+                };
+            }
 
             progress.Report(0.05f);
             var client = new LPApiClient(s_loadedProfile.APISettings, logger: ApiClientLogger);

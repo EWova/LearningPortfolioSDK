@@ -153,15 +153,27 @@ namespace EWova.LearningPortfolio
                             else
                             {
                                 if (Logger.ErrorEnabled)
-                                    Logger.Err($"無法取得專案資料 cause:{result.FailureReason}, msg:{result.ServerErrorMessage}");
+                                {
+                                    bool serErr = !string.IsNullOrEmpty(result.ServerErrorMessage);
+                                    bool cliErr = !string.IsNullOrEmpty(result.ClientErrorMessage);
+                                    string str = $"無法取得專案資料 Cause:{result.FailureReason}";
+                                    if (serErr || cliErr)
+                                    {
+                                        str += ", ErrorMsg ";
+                                        if (serErr)
+                                            str += $"Server:{result.ServerErrorMessage} ";
+                                        if (cliErr)
+                                            str += $"Client:{result.ClientErrorMessage} ";
+                                    }
+                                    Logger.Err(str);
+                                }
 
                                 if (result.Exception != null)
                                     Debug.LogException(result.Exception);
 
-                                var cause = result.FailureReason;
                                 // 面向使用者的錯誤訊息
                                 // TODO: 待本地化
-                                switch (cause)
+                                switch (result.FailureReason)
                                 {
                                     case CheckAvailabilityFailureReason.DefaultSettingsLoadFailed:
                                         UI.SetLoginStateText("系統初始化失敗，請嘗試重新開啟應用程式。\n若問題持續，請聯絡開發團隊。", LogType.Error);
@@ -268,7 +280,20 @@ namespace EWova.LearningPortfolio
                                 Debug.LogException(result.Exception);
 
                             if (Logger.ErrorEnabled)
-                                Logger.Err($"連線失敗 cause:{result.FailureReason}, {result.ServerErrorMessage}");
+                            {
+                                bool serErr = !string.IsNullOrEmpty(result.ServerErrorMessage);
+                                bool cliErr = !string.IsNullOrEmpty(result.ClientErrorMessage);
+                                string str = $"無法取得專案資料 Cause:{result.FailureReason}";
+                                if (serErr || cliErr)
+                                {
+                                    str += ", ErrorMsg ";
+                                    if (serErr)
+                                        str += $"Server:{result.ServerErrorMessage} ";
+                                    if (cliErr)
+                                        str += $"Client:{result.ClientErrorMessage} ";
+                                }
+                                Logger.Err(str);
+                            }
 
                             var cause = result.FailureReason;
                             // 面向使用者的錯誤訊息
