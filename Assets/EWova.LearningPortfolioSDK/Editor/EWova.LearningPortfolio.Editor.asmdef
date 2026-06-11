@@ -2,7 +2,10 @@
     "name": "EWova.LearningPortfolio.Editor",
     "rootNamespace": "",
     "references": [
-        "GUID:cfb63a07c41d6cd48ab74eef0354158d"
+        "GUID:0b34836ace6cdc74d8185cadaf082ad5",
+        "GUID:793cc03aa22dc804cb53c53bb8195c57",
+        "GUID:cfb63a07c41d6cd48ab74eef0354158d",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23"
     ],
     "includePlatforms": [
         "Editor"

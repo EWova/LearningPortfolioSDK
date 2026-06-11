@@ -5,12 +5,12 @@ using System.Collections.Generic;
 using System.Linq;
 
 using UnityEngine;
-using UnityEngine.XR;
 
 namespace EWova.LearningPortfolio
 {
     public partial class LearningPortfolio
     {
+        [Obsolete("已棄用從 Client 端 Mapping 裝置類型的方式")]
         public enum UsingDeviceList : int
         {
             Auto = -2,
@@ -29,32 +29,6 @@ namespace EWova.LearningPortfolio
             AllInOne_HTC_VIVE = 6502,
             Web = 7000,
             Web_VR = 7500,
-        }
-        [Serializable]
-        public class LoginRequestData
-        {
-            [Tooltip("目前使用裝置追蹤ID，如果有其他裝置需求請到官網裝置列表查詢")]
-            [EnumInt(typeof(UsingDeviceList))]
-            public int UsingDeviceId = (int)UsingDeviceList.Auto;
-
-            public static LoginRequestData CreateDefault()
-            {
-                LoginRequestData data = new();
-                UsingDeviceList device = UsingDeviceList.Auto;
-                data.UsingDeviceId = (int)device;
-                return data;
-            }
-        }
-        private static bool IsXRRunning()
-        {
-            List<XRDisplaySubsystem> displaySubsystems = new();
-            SubsystemManager.GetSubsystems(displaySubsystems);
-            foreach (var d in displaySubsystems)
-            {
-                if (d.running)
-                    return true;
-            }
-            return false;
         }
 
         [Serializable]
@@ -101,11 +75,22 @@ namespace EWova.LearningPortfolio
         /// </summary>
         public class UserProjectRecordSheet : IDisposable
         {
+            public UserProjectRecordSheet(
+                Api.Project sourceProject,
+                NetServiceRequestHandler netServiceHandler)
+            {
+                SourceProject = sourceProject;
+                NetServiceHandler = netServiceHandler;
+            }
+
+            public readonly Api.Project SourceProject;
+            public readonly NetServiceRequestHandler NetServiceHandler;
+
+
             public List<UnityEngine.Object> ManagedObjects = new();
 
             private bool disposedValue;
 
-            internal NetServiceRequestHandler NetServiceHandler { get; set; }
 
             public UserData Owner { get; internal set; }
 
@@ -208,6 +193,7 @@ namespace EWova.LearningPortfolio
             }
             public void Dispose()
             {
+                NetServiceHandler?.CancelAll();
                 Dispose(disposing: true);
                 GC.SuppressFinalize(this);
             }
@@ -387,11 +373,11 @@ namespace EWova.LearningPortfolio
             /// <summary>
             /// [網路服務請求] 加一資料列
             /// </summary>
-            public NetSerivceRespond<API.AddRowResponse> AddRow { get; internal set; }
+            public NetSerivceRespond<Api.AddRowResponse> AddRow { get; internal set; }
             /// <summary>
             /// [網路服務請求] 加一資料列並設定內容
             /// </summary>
-            public NetSerivceRequestRespond<API.SetRowRequest, API.AddRowResponse> AddRowAndSetCells { get; internal set; }
+            public NetSerivceRequestRespond<Api.SetRowRequest, Api.AddRowResponse> AddRowAndSetCells { get; internal set; }
             /// <summary>
             /// [網路服務請求] 清除所有可讀寫資料
             /// </summary>
@@ -435,7 +421,7 @@ namespace EWova.LearningPortfolio
             /// <summary>
             /// [網路服務請求] 修改欄位屬性設定
             /// </summary>
-            public NetSerivceRequest<API.SetColumnRequest> Edit { get; internal set; }
+            public NetSerivceRequest<Api.SetColumnRequest> Edit { get; internal set; }
             /// <summary>
             /// 儲存格彙總資訊
             /// </summary>
@@ -475,7 +461,7 @@ namespace EWova.LearningPortfolio
             /// <summary>
             /// [網路服務請求] 修改資料列內容
             /// </summary>
-            public NetSerivceRequest<API.SetRowRequest> SetCells { get; internal set; }
+            public NetSerivceRequest<Api.SetRowRequest> SetCells { get; internal set; }
         }
         /// <summary>
         /// 使用者專案記錄表單的儲存格資料

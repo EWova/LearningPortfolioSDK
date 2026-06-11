@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
-    "com.ewova.core": "https://github.com/EWova/UnityPackageCore.git?path=Assets/EWova.Core",
+    "com.ewova.core": "file:C:/Unity_C/EWova/LearningPortfolioSDK/EWova_LP_Example/EWova_Core/Assets/EWova.Core",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.ide.visualstudio": "2.0.23",
     "com.unity.inputsystem": "1.14.2",

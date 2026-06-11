@@ -6,10 +6,10 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/EWova.LearningPortfolioSDK/Tests/Template.unity
-    guid: 99c9720ab356a0642a771bea13969a05
+    path: Assets/EWova.LearningPortfolioSDK/Samples/BasicAssets/Template.unity
+    guid: 622a3fe348daea14cb3dd894ea49b3e8
   - enabled: 1
-    path: Assets/EWova.LearningPortfolioSDK/BasicAssets/YourGame.unity
+    path: Assets/EWova.LearningPortfolioSDK/Samples/BasicAssets/YourGame.unity
     guid: 57af047b1f99b0a4fb1f0f69363f431a
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

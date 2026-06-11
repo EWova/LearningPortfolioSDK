@@ -18,23 +18,31 @@ namespace EWova.LearningPortfolio
         public BinderButton LoginInfoChangeUserButton;
         public TextMeshProUGUI LoginInfoChangeUserButtonChildText;
 
+        [Header("NotSupportLogin")]
+        public GameObject NotSupportLoginRoot;
+        public TMP_InputField NotSupportLoginLaunchTicketInputField;
+
         [Header("Connect")]
-        public Button ConnectButton;
+        public Button ReconnectButton;
+        public Button ConnectingButton;
 
         [Header("Login")]
         public GameObject LoginRoot;
-        public TMP_InputField LoginAccountInput;
-        public TMP_InputField LoginPasswordInput;
         public TextMeshProUGUI LoginStateText;
-        public Toggle LoginPasswordInputShow;
-        public Sprite LoginPasswordInputShowOnNormalImage;
-        public Sprite LoginPasswordInputShowOnHighlightedImage;
-        public Sprite LoginPasswordInputShowOffNormalImage;
-        public Sprite LoginPasswordInputShowOffHighlightedImage;
         public Button LoginButton;
         public BinderButton LoginSkipButton;
         public TextMeshProUGUI LoginSkipButtonChildText;
         public Image LoginSkipButtonChildImage;
+
+        [Header("Login Redirect")]
+        public GameObject LoginRedirectRoot;
+        public Transform LoginRedirectIconRotate;
+        public Button CancelLoginButton;
+
+        [Header("Getting User Data")]
+        public GameObject GettingUserDataRoot;
+        public TextMeshProUGUI GettingUserDataStateText;
+        public Button CancelGettingUserDataButton;
 
         [Header("Check Account")]
         public GameObject CheckAccountRoot;
@@ -56,24 +64,6 @@ namespace EWova.LearningPortfolio
 
         private void Awake()
         {
-            LoginAccountInput.onSelect.AddListener((text) =>
-            {
-                FocusInputField = LoginAccountInput;
-            });
-            LoginPasswordInput.onSelect.AddListener((text) =>
-            {
-                FocusInputField = LoginPasswordInput;
-            });
-
-            LoginAccountInput.onSubmit.AddListener((text) =>
-            {
-                LoginPasswordInput.Select();
-            });
-            LoginPasswordInput.onSubmit.AddListener((text) =>
-            {
-                LoginButton.onClick.Invoke();
-            });
-
             LoginInfoChangeUserButton.BindingState(
                 LoginInfoChangeUserButtonChildText
                 , SecondaryNormalColor
@@ -104,32 +94,15 @@ namespace EWova.LearningPortfolio
                 , SecondaryHighlightedColor
                 , SecondaryNormalColor
                 , SecondaryDisabledColor);
-
-            LoginPasswordInputShow.onValueChanged.AddListener((enabled) =>
-            {
-                var temp = LoginPasswordInputShow.spriteState;
-                if (enabled)
-                {
-                    LoginPasswordInputShow.image.sprite = LoginPasswordInputShowOffNormalImage;
-                    temp.selectedSprite = LoginPasswordInputShowOffNormalImage;
-                    temp.disabledSprite = LoginPasswordInputShowOffNormalImage;
-
-                    temp.highlightedSprite = LoginPasswordInputShowOffHighlightedImage;
-                    temp.pressedSprite = LoginPasswordInputShowOffHighlightedImage;
-                }
-                else
-                {
-                    LoginPasswordInputShow.image.sprite = LoginPasswordInputShowOnNormalImage;
-                    temp.selectedSprite = LoginPasswordInputShowOnNormalImage;
-                    temp.disabledSprite = LoginPasswordInputShowOnNormalImage;
-
-                    temp.highlightedSprite = LoginPasswordInputShowOnHighlightedImage;
-                    temp.pressedSprite = LoginPasswordInputShowOnHighlightedImage;
-                }
-                LoginPasswordInputShow.spriteState = temp;
-            });
         }
 
+        private void Update()
+        {
+            if (LoginRedirectRoot.activeSelf)
+            {
+                LoginRedirectIconRotate.Rotate(0f, 0f, -120f * Time.deltaTime);
+            }
+        }
         private void OnEnable()
         {
             VirtualKeyboard.OnTextKeyPress += InputText;
@@ -141,15 +114,6 @@ namespace EWova.LearningPortfolio
             VirtualKeyboard.OnTextKeyPress -= InputText;
             VirtualKeyboard.OnKeySubmit -= InputSubmit;
             VirtualKeyboard.OnKeyBackspace -= InputBackspace;
-        }
-
-        public void SetLoginStateTextWithException(Exception ex)
-        {
-            if (LoginStateText.IsDestroyed())
-                return;
-
-            UnityEngine.Debug.LogException(ex);
-            SetLoginStateText(ex.Message, LogType.Error);
         }
 
         public void SetLoginStateText(string text, LogType logType = LogType.Log)
