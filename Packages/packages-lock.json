@@ -8,11 +8,11 @@
       "hash": "73a63b7f672b88f7e9992f6917eb458a8cbb6fa9"
     },
     "com.ewova.core": {
-      "version": "https://github.com/EWova/UnityPackageCore.git?path=Assets/EWova.Core",
+      "version": "https://github.com/EWova/UnityPackageCore.git?path=Assets/EWova.Core#Dev",
       "depth": 0,
       "source": "git",
       "dependencies": {},
-      "hash": "2d43c45a2cc669c4ac5d569ad93b6e0ab4270710"
+      "hash": "95717f741179deedeb02e78658245207a816079c"
     },
     "com.unity.2d.sprite": {
       "version": "1.0.0",

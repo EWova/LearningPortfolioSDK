@@ -13,5 +13,4 @@ MonoBehaviour:
   m_Name: LearningPortfolioProfile
   m_EditorClassIdentifier: 
   APISettings:
-    ServiceUrl: https://api.ewova.com/api
     APIKey: 

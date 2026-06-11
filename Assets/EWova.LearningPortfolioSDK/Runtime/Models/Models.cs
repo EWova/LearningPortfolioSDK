@@ -1,50 +1,8 @@
-using Cysharp.Threading.Tasks;
-
 using System;
 
-namespace EWova.LearningPortfolio 
+namespace EWova.LearningPortfolio
 {
-    public static class ErrorHandleExtensions
-    {
-        public static async UniTask<bool> CatchAsBool(this UniTask asyncAction, Action<Exception> onCatch = null)
-        {
-            try
-            {
-                await asyncAction;
-                return true;
-            }
-            catch (Exception ex)
-            {
-                onCatch?.Invoke(ex);
-                return false;
-            }
-        }
-    }
-    public class ErrorHandleException : Exception
-    {
-        public string Endpoint { get; }
-        public string Title { get; }
-        public string ErrorMessage { get; }
-        public ErrorHandleException(string title, string message, string endpoint)
-            : base($"[{title}]: {message}. endpoint:{endpoint}")
-        {
-            Endpoint = endpoint;
-            Title = title;
-            ErrorMessage = $"[{title}]: {message}. endpoint: {endpoint}";
-        }
-        public ErrorHandleException(ErrorHandle error)
-            : this(error?.Title ?? "Error", error?.Message ?? "No message provided", error.Endpoint)
-        {
-        }
-    }
-    public class ErrorHandle
-    {
-        public string Endpoint;
-        public string Message;
-        public string Title;
-    }
-
-    public class API 
+    public class Api
     {
         public class VerifyProjectInfo
         {
@@ -118,7 +76,12 @@ namespace EWova.LearningPortfolio
 
         public class ColumnSummary
         {
+            public string DisplayValue;
             public string Label;
+            public string FieldType; // Number, String, Boolean
+            public float Total;
+            public int Count;
+            public float Average;
         }
         public class SetColumnRequest
         {
@@ -136,9 +99,23 @@ namespace EWova.LearningPortfolio
         {
             public string[] Cells;
         }
+        public class HeartbeatRequest
+        {
+            public int trackingId;
+        }
+        public class HeartbeatResponse
+        {
+            public bool Success;
+        }
         public class SetProjectUsageRecordRequest
         {
+            [Obsolete("已棄用從 Client 端 Mapping 裝置類型的方式")]
             public int UsingDeviceId;
+
+            public string OrgId;
+            public string Platform;
+            public string DeviceModel;
+            public bool IsXRActive;
         }
         public class ProjectUsageRecordResponse
         {

@@ -1,3 +1,7 @@
+using Cysharp.Threading.Tasks;
+
+using Newtonsoft.Json;
+
 using UnityEditor;
 
 using UnityEngine;
@@ -7,7 +11,6 @@ namespace EWova.LearningPortfolio.Editor
     [CustomEditor(typeof(LearningPortfolioProfile))]
     public class LearningPortfolioProfileEditor : UnityEditor.Editor
     {
-        private SerializedProperty m_stringServiceUrl;
         private SerializedProperty m_stringApiKey;
 
         private int m_isApiKeyValid = -1;
@@ -15,17 +18,11 @@ namespace EWova.LearningPortfolio.Editor
 
         private void OnEnable()
         {
-            m_stringServiceUrl = serializedObject.FindProperty("APISettings").FindPropertyRelative("ServiceUrl");
             m_stringApiKey = serializedObject.FindProperty("APISettings").FindPropertyRelative("APIKey");
         }
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
-
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Service Url", GUILayout.MaxWidth(100));
-            m_stringServiceUrl.stringValue = EditorGUILayout.TextField(m_stringServiceUrl.stringValue, GUILayout.ExpandWidth(true)).Trim();
-            EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("API Key", GUILayout.MaxWidth(100));
@@ -50,44 +47,38 @@ namespace EWova.LearningPortfolio.Editor
             {
                 m_isApiKeyValid = 0;
                 m_message = null;
-                LearningPortfolio.GetApiKeyValidInfo(
-                    m_stringServiceUrl.stringValue
-                    , m_stringApiKey.stringValue
-                    , (valid) =>
+
+                var apiClient = new LPApiClient(new ApiSettings(m_stringApiKey.stringValue), null, null);
+
+                UniTask.Void(async () =>
+                {
+                    try
                     {
+                        var valid = await apiClient.GetApiKeyValidInfoAsync();
                         if (!valid.IsValid)
                         {
                             m_isApiKeyValid = 2;
                             m_message = $"Token 不可用 錯誤資訊:{valid.ErrorMessage}";
                             return;
                         }
-
                         m_isApiKeyValid = 0;
                         m_message = $"專案認證成功！\n\n取得詳細資料...";
-                        LearningPortfolio.GetProject(
-                            m_stringServiceUrl.stringValue
-                            , m_stringApiKey.stringValue
-                            , valid.ProjectId
-                            , (project) =>
-                            {
-                                m_isApiKeyValid = 1;
-                                m_message = $"專案認證成功！\n\n" +
-                                            $"[名稱] {project.Name}\n" +
-                                            $"[代號] {project.Id}\n" +
-                                            $"[擁有組織] {project.OrgId}\n" +
-                                            $"[專案唯一識別名稱] {project.UniqueName}\n" +
-                                            $"[公開狀態] {project.Publicity}\n" +
-                                            $"[簡介] {project.Description}\n" +
-                                            $"[聯絡支援] {project.SupportMail}";
-                            });
+                        var project = await apiClient.GetProjectAsync(valid.ProjectId);
+                        m_isApiKeyValid = 1;
+                        m_message = $"專案認證成功！\n\n" +
+                                    JsonConvert.SerializeObject(project, Formatting.Indented);
                     }
-                    , (ex) =>
+                    catch (System.Exception ex)
                     {
                         m_isApiKeyValid = 2;
-                        m_message = $"[{ex.GetType().Name}]\n\n" +
+                        m_message = $"[{ex.GetType().Name}]\n" +
                         $"{ex.Message}";
-                    });
-                return;
+                        Debug.LogException(ex);
+                    }
+                    finally
+                    {
+                    }
+                });
             }
             GUI.enabled = enabledCache;
             EditorGUILayout.EndHorizontal();
