@@ -147,7 +147,7 @@ namespace EWova.LearningPortfolio
                             else if (result.FailureReason == CheckAvailabilityFailureReason.PlatformNotSupportLogin)
                             {
                                 if (Logger.WarnEnabled)
-                                    Logger.Warn($"請注意，當前平台 {Application.platform} 不支援跳轉登入，將無法登入使用學習歷程相關功能");
+                                    Logger.Warn("目前環境不支援跳轉登入，請檢查相關設定，否則將無法登入使用學習歷程相關功能");
                                 CurrentStatus = Status.NotSupportLogin;
                             }
                             else
