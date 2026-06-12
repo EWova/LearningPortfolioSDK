@@ -18,11 +18,17 @@ namespace EWova.LearningPortfolio
         {
             get
             {
-                return Environment.DeploymentMode switch
+                if (Environment.DeploymentMode is DeploymentMode.Development)
                 {
-                    DeploymentMode.Development => "https://api-learning-app.ewova.dev/",
-                    _ => "https://api-learning-app.ewova.com/",
-                };
+                    return "https://api-learning-app.ewova.dev/";
+                }
+                else
+                {
+#if UNITY_EDITOR
+                    Authoring.EditorLogger.Warning("你正在編輯器中使用正式環境的 API URL，請確認是否有意這麼做，避免對正式環境造成不必要的影響。可到 EWova/Editor/DeveloymentMode 切換回 Development 開發環境。");
+#endif
+                    return "https://api-learning-app.ewova.com/";
+                }
             }
         }
 
@@ -136,8 +142,11 @@ namespace EWova.LearningPortfolio
 
                 try
                 {
-                    // 最後一次心跳不帶入已取消的 token
-                    await ProjectUsageRecordHeartbeatAsync(trackingId, CancellationToken.None);
+                    if (_auth.IsAuthenticated)
+                    {
+                        // 最後一次心跳不帶入已取消的 token
+                        await ProjectUsageRecordHeartbeatAsync(trackingId, CancellationToken.None);
+                    }
                 }
                 catch (Exception ex)
                 {

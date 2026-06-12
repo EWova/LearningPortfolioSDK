@@ -244,6 +244,7 @@ namespace EWova.LearningPortfolio
                 return checkAvailabilityResponse;
             }
 
+            checkAvailabilityResponse.FailureReason = CheckAvailabilityFailureReason.ApiCheckApiHealthFailed;
             await InternalCheckAvailabilityAsync(checkAvailabilityResponse, client, ct);
 
             if (!checkAvailabilityResponse.IsSuccess)
@@ -296,9 +297,16 @@ namespace EWova.LearningPortfolio
                 {
                     AuthorizeViaBrowserOptions option = AuthorizeViaBrowserOptions.Default;
 #if UNITY_EDITOR
-                    if (Editor.LearningPortfolioEditorSettings.SkipForceLoginForBrowserAuthorization)
+                    if (Authoring.LearningPortfolioEditorPrefs.DisableForceLogin)
                     {
                         option.LoginBehavior = LoginBehavior.Standard;
+                        if (Authoring.DevelopTip.IsEnabled)
+                            Authoring.EditorLogger.Info("💡 目前已關閉強制登入，若需切換登入帳號，可以到 EWova/Editor/Learning Portfolio/Disable Force Login 關閉此設定。");
+                    }
+                    else
+                    {
+                        if (Authoring.DevelopTip.IsEnabled)
+                            Authoring.EditorLogger.Info("💡 編輯器開發時，可啟用 EWova/Editor/Learning Portfolio/Disable Force Login 關閉強制登入，在瀏覽器驗證過的情況下可以直接完成驗證，方便開發者重複登入。");
                     }
 #endif
                     AuthorizeResult loginResult = await EwovaAuthManager.Instance.AuthorizeViaBrowserAsync(option, cancellationToken: cancellationToken);
