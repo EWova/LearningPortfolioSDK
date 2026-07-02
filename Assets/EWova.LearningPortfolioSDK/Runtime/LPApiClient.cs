@@ -25,7 +25,7 @@ namespace EWova.LearningPortfolio
                 else
                 {
 #if UNITY_EDITOR
-                    Authoring.EditorLogger.Warning("你正在編輯器中使用正式環境的 API URL，請確認是否有意這麼做，避免對正式環境造成不必要的影響。可到 EWova/Editor/DeveloymentMode 切換回 Development 開發環境。");
+                    Authoring.EditorLogger.Warn("你正在編輯器中使用正式環境的 API URL，請確認是否有意這麼做，避免對正式環境造成不必要的影響。可到 EWova/Editor/DeveloymentMode 切換回 Development 開發環境。");
 #endif
                     return "https://api-learning-app.ewova.com/";
                 }

@@ -10,6 +10,8 @@ namespace EWova.LearningPortfolio.Editor
     [InitializeOnLoad]
     internal static class PkgVerGen
     {
+        static PkgVerGen() { }
+
         internal const string PackageJsonGuid = "5c458c6c22855214ba2a274fd2d799b2";
         internal const string PackageInfoGuid = "04b7fe9b5e0bdd0478d7c6dfdd9fe83a";
         internal static void Generate()

@@ -35,7 +35,6 @@ namespace EWova.LearningPortfolio
             CheckAccount = 2,
         }
 
-
         public EWovaLoginPlaneUI UI;
 
         [Tooltip("遊戲開始 True=有使用使用者 False=無使用使用者")]
@@ -101,10 +100,6 @@ namespace EWova.LearningPortfolio
                 OnGameStart?.Invoke(false);
             });
         }
-        private void Update()
-        {
-            UpdateSmoothedGettingUserDataStateProgress();
-        }
 
         private void TryCheckingAvailability()
         {
@@ -124,88 +119,88 @@ namespace EWova.LearningPortfolio
 
             CurrentStatus = Status.CheckAvailabilityProcessing;
 
-            LearningPortfolio
-                .CheckAvailabilityAsync(destroyCancellationToken)
-                .ContinueWith(result =>
+            CheckAvailabilityProcess process = new();
+            process.OnCompleted += (result) =>
+            {
+                try
                 {
-                    try
+                    if (result.IsSuccess)
                     {
-                        if (result.IsSuccess)
+                        CurrentStatus = Status.CheckAvailabilityOK;
+                    }
+                    else
+                    {
+                        if (result.IsManuallyCancel)
                         {
-                            CurrentStatus = Status.CheckAvailabilityOK;
+                            if (Logger.InfoEnabled)
+                                Logger.Info("使用者取消流程");
+
+                            UI.SetLoginStateText("已取消登入", LogType.Log);
+                            CurrentStatus = Status.None;
+                        }
+                        else if (result.Status == CheckAvailabilityStatus.PlatformNotSupportLogin)
+                        {
+                            if (Logger.WarnEnabled)
+                                Logger.Warn("目前環境不支援跳轉登入，請檢查相關設定，否則將無法登入使用學習歷程相關功能");
+                            CurrentStatus = Status.NotSupportLogin;
                         }
                         else
                         {
-                            if (result.IsManuallyCancel)
+                            if (Logger.ErrorEnabled)
                             {
-                                if (Logger.InfoEnabled)
-                                    Logger.Info("使用者取消流程");
-
-                                UI.SetLoginStateText("已取消登入", LogType.Log);
-                                CurrentStatus = Status.None;
-                            }
-                            else if (result.FailureReason == CheckAvailabilityFailureReason.PlatformNotSupportLogin)
-                            {
-                                if (Logger.WarnEnabled)
-                                    Logger.Warn("目前環境不支援跳轉登入，請檢查相關設定，否則將無法登入使用學習歷程相關功能");
-                                CurrentStatus = Status.NotSupportLogin;
-                            }
-                            else
-                            {
-                                if (Logger.ErrorEnabled)
+                                bool serErr = !string.IsNullOrEmpty(result.ServerErrorMessage);
+                                bool cliErr = !string.IsNullOrEmpty(result.ClientErrorMessage);
+                                string str = $"無法取得專案資料 Status:{result.Status}";
+                                if (serErr || cliErr)
                                 {
-                                    bool serErr = !string.IsNullOrEmpty(result.ServerErrorMessage);
-                                    bool cliErr = !string.IsNullOrEmpty(result.ClientErrorMessage);
-                                    string str = $"無法取得專案資料 Cause:{result.FailureReason}";
-                                    if (serErr || cliErr)
-                                    {
-                                        str += ", ErrorMsg ";
-                                        if (serErr)
-                                            str += $"Server:{result.ServerErrorMessage} ";
-                                        if (cliErr)
-                                            str += $"Client:{result.ClientErrorMessage} ";
-                                    }
-                                    Logger.Err(str);
+                                    str += ", ErrorMsg ";
+                                    if (serErr)
+                                        str += $"Server:{result.ServerErrorMessage} ";
+                                    if (cliErr)
+                                        str += $"Client:{result.ClientErrorMessage} ";
                                 }
-
-                                if (result.Exception != null)
-                                    Debug.LogException(result.Exception);
-
-                                // 面向使用者的錯誤訊息
-                                // TODO: 待本地化
-                                switch (result.FailureReason)
-                                {
-                                    case CheckAvailabilityFailureReason.DefaultSettingsLoadFailed:
-                                        UI.SetLoginStateText("系統初始化失敗，請嘗試重新開啟應用程式。\n若問題持續，請聯絡開發團隊。", LogType.Error);
-                                        break;
-                                    case CheckAvailabilityFailureReason.ApiCheckApiHealthFailed or
-                                        CheckAvailabilityFailureReason.ApiGetApiKeyValidInfoFailed:
-                                        UI.SetLoginStateText("目前無法連接到伺服器，請檢查您的網路連線，或稍後再試。\n若問題持續，請聯絡 EWova 團隊。", LogType.Error);
-                                        break;
-                                    case CheckAvailabilityFailureReason.ApiKeyInvalid or
-                                        CheckAvailabilityFailureReason.GetProjectFailed:
-                                        UI.SetLoginStateText("專案初始化失敗，請嘗試重新開啟應用程式。\n若問題持續，請聯絡開發團隊。", LogType.Error);
-                                        break;
-                                    default:
-                                        if (!string.IsNullOrEmpty(result.ServerErrorMessage))
-                                            UI.SetLoginStateText($"系統發生未知的錯誤，請稍後再試。\n除錯資訊: {result.FailureReason}:{result.ServerErrorMessage}", LogType.Error);
-                                        else
-                                            UI.SetLoginStateText($"系統發生未知的錯誤，請稍後再試。\n除錯資訊: {result.FailureReason}", LogType.Error);
-                                        break;
-                                }
-                                CurrentStatus = Status.None;
+                                Logger.Err(str);
                             }
+
+                            if (result.Exception != null)
+                                Debug.LogException(result.Exception);
+
+                            // 面向使用者的錯誤訊息
+                            // TODO: 待本地化
+                            switch (result.Status)
+                            {
+                                case CheckAvailabilityStatus.DefaultSettingsLoad:
+                                    UI.SetLoginStateText("系統初始化失敗，請嘗試重新開啟應用程式。\n若問題持續，請聯絡開發團隊。", LogType.Error);
+                                    break;
+                                case CheckAvailabilityStatus.ApiCheckApiHealth or
+                                    CheckAvailabilityStatus.ApiGetApiKeyValidInfo:
+                                    UI.SetLoginStateText("目前無法連接到伺服器，請檢查您的網路連線，或稍後再試。\n若問題持續，請聯絡 EWova 團隊。", LogType.Error);
+                                    break;
+                                case CheckAvailabilityStatus.CheckApiKeyInvalid or
+                                    CheckAvailabilityStatus.GetProject:
+                                    UI.SetLoginStateText("專案初始化失敗，請嘗試重新開啟應用程式。\n若問題持續，請聯絡開發團隊。", LogType.Error);
+                                    break;
+                                default:
+                                    if (!string.IsNullOrEmpty(result.ServerErrorMessage))
+                                        UI.SetLoginStateText($"系統發生未知的錯誤，請稍後再試。\n除錯資訊 Status:{result.Status} {result.ServerErrorMessage}", LogType.Error);
+                                    else
+                                        UI.SetLoginStateText($"系統發生未知的錯誤，請稍後再試。\n除錯資訊 Status:{result.Status}", LogType.Error);
+                                    break;
+                            }
+                            CurrentStatus = Status.None;
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        CurrentStatus = Status.CheckAvailabilityFailed;
-                        UI.SetLoginStateText("系統發生未知的錯誤，請稍後再試。", LogType.Error);
-                        if (Logger.ErrorEnabled)
-                            Logger.Err("檢查專案可用性時發生例外");
-                        Debug.LogException(ex);
-                    }
-                });
+                }
+                catch (Exception ex)
+                {
+                    CurrentStatus = Status.CheckAvailabilityFailed;
+                    UI.SetLoginStateText("系統發生未知的錯誤，請稍後再試。", LogType.Error);
+                    if (Logger.ErrorEnabled)
+                        Logger.Err("檢查專案可用性時發生例外");
+                    Debug.LogException(ex);
+                }
+            };
+            LearningPortfolio.CheckAvailability(process, destroyCancellationToken);
         }
         private CancellationTokenSource _loginHandler;
         private void TryCancelConnect()
@@ -245,17 +240,20 @@ namespace EWova.LearningPortfolio
 
             _loginHandler = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
 
-            _smoothedProgress = 0f;
-            LearningPortfolio.ConnectAsync(
-                onTriggerLoginProcessOkIfRequired: (pendingUserData) =>
+            ConnectProcess process = new();
+            process.OnProgressChanged += (progress) =>
+            {
+                UI.GettingUserDataStateText.text = progress.ToString("P0");
+            };
+            process.OnStatusChanged += (status) =>
+            {
+                if (status == ConnectStatus.UserAuthFlowOK)
                 {
-                    _connectingPendingUserData = pendingUserData;
+                    _connectingPendingUserData = process.PendingAuthUserProfile;
                     CurrentStatus = Status.LPConnectGettingUserData;
-                },
-                cancellationToken: _loginHandler.Token,
-                progress: Progress.Create<float>(OnGettingUserDataStateProgress)
-            )
-            .ContinueWith((result) =>
+                }
+            };
+            process.OnCompleted += (result) =>
             {
                 try
                 {
@@ -283,7 +281,7 @@ namespace EWova.LearningPortfolio
                             {
                                 bool serErr = !string.IsNullOrEmpty(result.ServerErrorMessage);
                                 bool cliErr = !string.IsNullOrEmpty(result.ClientErrorMessage);
-                                string str = $"無法取得專案資料 Cause:{result.FailureReason}";
+                                string str = $"無法取得專案資料 Cause:{result.Status}";
                                 if (serErr || cliErr)
                                 {
                                     str += ", ErrorMsg ";
@@ -295,46 +293,46 @@ namespace EWova.LearningPortfolio
                                 Logger.Err(str);
                             }
 
-                            var cause = result.FailureReason;
+                            var cause = result.Status;
                             // 面向使用者的錯誤訊息
                             // TODO: 待本地化
                             switch (cause)
                             {
-                                case ConnectFailureReason.CheckAvailability_DefaultSettingsLoadFailed:
+                                case ConnectStatus.CheckAvailability_DefaultSettingsLoad:
                                     UI.SetLoginStateText("系統初始化失敗，請嘗試重新開啟應用程式。\n若問題持續，請聯絡開發團隊。", LogType.Error);
                                     break;
 
                                 // 網路與連線錯誤
-                                case ConnectFailureReason.CheckAvailability_ApiCheckApiHealthFailed:
-                                case ConnectFailureReason.CheckAvailability_ApiGetApiKeyValidInfoFailed:
+                                case ConnectStatus.CheckAvailability_ApiCheckApiHealth:
+                                case ConnectStatus.CheckAvailability_ApiGetApiKeyValidInfo:
                                     UI.SetLoginStateText("目前無法連接到伺服器，請檢查您的網路連線稍後再試。\n若問題持續，請聯絡 EWova 團隊。", LogType.Error);
                                     break;
 
                                 // 使用者驗證錯誤
-                                case ConnectFailureReason.UserAuthFlowFailed:
+                                case ConnectStatus.UserAuthFlow:
                                     UI.SetLoginStateText("使用者登入失敗，請重新驗證", LogType.Error);
                                     break;
 
                                 // 後端驗證錯誤 (對使用者來說都是軟體驗證問題)
-                                case ConnectFailureReason.CheckAvailability_ApiKeyInvalid:
-                                case ConnectFailureReason.CheckAvailability_GetProjectFailed:
+                                case ConnectStatus.CheckAvailability_ApiKeyInvalid:
+                                case ConnectStatus.CheckAvailability_GetProject:
                                     UI.SetLoginStateText("專案初始化失敗，請嘗試重新開啟應用程式。\n若問題持續，請聯絡開發團隊。", LogType.Error);
                                     break;
 
-                                case ConnectFailureReason.CreateProjectUsageSheetFailed:
+                                case ConnectStatus.CreateProjectUsageSheet:
                                     UI.SetLoginStateText("無法建立專案使用紀錄，或稍後再試。", LogType.Error);
                                     break;
 
-                                case ConnectFailureReason.ManuallyCancel:
+                                case ConnectStatus.ManuallyCancel:
                                     UI.SetLoginStateText("已取消登入。", LogType.Log);
                                     break;
 
                                 // 未知或未預期的錯誤
                                 default:
                                     if (!string.IsNullOrEmpty(result.ServerErrorMessage))
-                                        UI.SetLoginStateText($"系統發生未知的錯誤，請稍後再試。\n除錯資訊: {result.FailureReason}:{result.ServerErrorMessage}", LogType.Error);
+                                        UI.SetLoginStateText($"系統發生未知的錯誤，請稍後再試。\n除錯資訊: {result.Status}:{result.ServerErrorMessage}", LogType.Error);
                                     else
-                                        UI.SetLoginStateText($"系統發生未知的錯誤，請稍後再試。\n除錯資訊: {result.FailureReason}", LogType.Error);
+                                        UI.SetLoginStateText($"系統發生未知的錯誤，請稍後再試。\n除錯資訊: {result.Status}", LogType.Error);
                                     break;
                             }
                             CurrentStatus = Status.CheckAvailabilityOK;
@@ -350,7 +348,9 @@ namespace EWova.LearningPortfolio
                 {
                     TryCancelConnect();
                 }
-            });
+            };
+
+            LearningPortfolio.Connect(process, cancellationToken: _loginHandler.Token);
         }
         private void TryLogout()
         {
@@ -363,24 +363,6 @@ namespace EWova.LearningPortfolio
 
             CurrentStatus = Status.CheckAvailabilityOK;
             LearningPortfolio.Disconnect();
-        }
-
-        private float _smoothedProgress = 0f;
-        private float _tempSmoothProgress = 0f;
-        private float _currentProgress = 0f;
-        private void OnGettingUserDataStateProgress(float value)
-        {
-            _currentProgress = value;
-        }
-        private void UpdateSmoothedGettingUserDataStateProgress()
-        {
-            _smoothedProgress = Mathf.MoveTowards(_smoothedProgress, _currentProgress, Time.deltaTime);
-
-            if (!Mathf.Approximately(_smoothedProgress, _tempSmoothProgress))
-            {
-                _tempSmoothProgress = _smoothedProgress;
-                UI.GettingUserDataStateText.text = _smoothedProgress.ToString("P0");
-            }
         }
         private void Reprint()
         {

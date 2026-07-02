@@ -20,6 +20,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 
+using UnityEditor.PackageManager;
+
 using UnityEngine;
 
 namespace EWova.LearningPortfolio
@@ -201,97 +203,98 @@ namespace EWova.LearningPortfolio
 
         }
 
-        public static async UniTask<CheckAvailabilityResponse> CheckAvailabilityAsync(CancellationToken ct = default)
+        public static void CheckAvailability(CheckAvailabilityProcess process, CancellationToken ct = default)
+            => CheckAvailabilityAsync(process, ct).Forget();
+        public static async UniTask CheckAvailabilityAsync(CheckAvailabilityProcess process, CancellationToken ct = default)
         {
+            using var scope = Scope<CheckAvailabilityProcess>.Warp(process);
+
+            if (process == null)
+                throw new ArgumentNullException(nameof(process));
+
             ct.ThrowIfCancellationRequested();
 
+            process.Status = CheckAvailabilityStatus.DefaultSettingsLoad;
             s_loadedProfile = LoadOrGetProfile();
             if (s_loadedProfile == null)
             {
-                return new CheckAvailabilityResponse()
-                {
-                    FailureReason = CheckAvailabilityFailureReason.DefaultSettingsLoadFailed,
-                    ClientErrorMessage = "找不到 Resources/EWova/LearningPortfolioProfile 必要專案設定，請確認資源存在路徑正確且 API Key 正確。"
-                };
+                process.ClientErrorMessage = "找不到 Resources/EWova/LearningPortfolioProfile 必要專案設定，請確認資源存在路徑正確且 API Key 正確。";
+                return;
             }
             if (!s_loadedProfile.APISettings.IsValid(out string errorMessage))
             {
-                return new CheckAvailabilityResponse()
-                {
-                    FailureReason = CheckAvailabilityFailureReason.DefaultSettingsLoadFailed,
-                    ClientErrorMessage = $"檢測到學習歷程 Api key 不合規範: {errorMessage} 請檢查 LearningPortfolioProfile.asset"
-                };
+                process.ClientErrorMessage = $"檢測到學習歷程 Api key 不合規範: {errorMessage} 請檢查 LearningPortfolioProfile.asset";
+                return;
             }
-
-            var client = new LPApiClient(s_loadedProfile.APISettings, logger: ApiClientLogger);
 
             if (Instance != null)
             {
-                return new CheckAvailabilityResponse()
-                {
-                    Data = Instance.m_connectedProject,
-                    FailureReason = CheckAvailabilityFailureReason.None,
-                    Exception = null
-                };
+                process.Status = CheckAvailabilityStatus.Success;
+                process.Data = Instance.m_connectedProject;
+                return;
             }
 
-            CheckAvailabilityResponse checkAvailabilityResponse = new();
             if (!EwovaAuthManager.Instance.IsSupportAuthorizeViaDeepLink)
             {
-                checkAvailabilityResponse.FailureReason = CheckAvailabilityFailureReason.PlatformNotSupportLogin;
-                checkAvailabilityResponse.ClientErrorMessage = "當前平台不支援使用系統瀏覽器進行 DeepLink 跳轉授權，無法使用學習歷程服務。";
-                client.Dispose();
-                return checkAvailabilityResponse;
+                process.Status = CheckAvailabilityStatus.PlatformNotSupportLogin;
+                process.ClientErrorMessage = "當前平台不支援使用系統瀏覽器進行 DeepLink 跳轉授權，無法使用學習歷程服務。";
+                return;
             }
 
-            checkAvailabilityResponse.FailureReason = CheckAvailabilityFailureReason.ApiCheckApiHealthFailed;
-            await InternalCheckAvailabilityAsync(checkAvailabilityResponse, client, ct);
+            process.Status = CheckAvailabilityStatus.ApiCheckApiHealth;
+            var client = new LPApiClient(s_loadedProfile.APISettings, logger: ApiClientLogger);
+            await InternalCheckAvailabilityAsync(process, client, ct);
 
-            if (!checkAvailabilityResponse.IsSuccess)
+            if (!process.IsSuccess)
             {
                 client.Dispose();
-                UnityEngine.Debug.LogException(checkAvailabilityResponse.Exception);
+                UnityEngine.Debug.LogException(process.Exception);
+            }
+            else
+            {
+                process.Status = CheckAvailabilityStatus.Success;
             }
 
-            return checkAvailabilityResponse;
         }
-        public static async UniTask<ConnectResponse> ConnectAsync(
-            Action<UserProfile> onTriggerLoginProcessOkIfRequired = null,
-            CancellationToken cancellationToken = default,
-            IProgress<float> progress = null)
+
+        public static void Connect(ConnectProcess process, CancellationToken cancellationToken = default)
+            => ConnectAsync(process, cancellationToken).Forget();
+        public static async UniTask ConnectAsync(
+            ConnectProcess process,
+            CancellationToken cancellationToken = default)
         {
+            using var scope = Scope<ConnectProcess>.Warp(process);
+
+            if (process == null)
+                throw new ArgumentNullException(nameof(process));
+
             cancellationToken.ThrowIfCancellationRequested();
 
             if (Instance != null)
-                return new() { Data = Instance };
+            {
+                process.Status = ConnectStatus.Success;
+                process.Data = Instance;
+                return;
+            }
 
             s_loadedProfile = LoadOrGetProfile();
+            process.Status = ConnectStatus.CheckAvailability_DefaultSettingsLoad;
             if (s_loadedProfile == null)
             {
-                return new ConnectResponse()
-                {
-                    FailureReason = ConnectFailureReason.CheckAvailability_DefaultSettingsLoadFailed,
-                    ClientErrorMessage = "找不到 Resources/EWova/LearningPortfolioProfile 必要專案設定，請確認資源存在路徑正確且 API Key 正確。"
-                };
+                process.ClientErrorMessage = "找不到 Resources/EWova/LearningPortfolioProfile 必要專案設定，請確認資源存在路徑正確且 API Key 正確。";
+                return;
             }
-
             if (!s_loadedProfile.APISettings.IsValid(out string errorMessage))
             {
-                return new ConnectResponse()
-                {
-                    FailureReason = ConnectFailureReason.CheckAvailability_DefaultSettingsLoadFailed,
-                    ClientErrorMessage = $"檢測到學習歷程 Api key 不合規範: {errorMessage} 請檢查 LearningPortfolioProfile.asset"
-                };
+                process.ClientErrorMessage = $"檢測到學習歷程 Api key 不合規範: {errorMessage} 請檢查 LearningPortfolioProfile.asset";
+                return;
             }
+            process.Progress = 0.05f;
 
-            progress.Report(0.05f);
-            var client = new LPApiClient(s_loadedProfile.APISettings, logger: ApiClientLogger);
-
-            ConnectResponse connectResp = new();
             if (!EwovaAuthManager.Instance.IsAuthenticated)
             {
-                connectResp.FailureReason = ConnectFailureReason.UserAuthFlowFailed;
-                progress.Report(0.1f);
+                process.Status = ConnectStatus.UserAuthFlow;
+                process.Progress = 0.1f;
 
                 try
                 {
@@ -300,13 +303,11 @@ namespace EWova.LearningPortfolio
                     if (Authoring.LearningPortfolioEditorPrefs.DisableForceLogin)
                     {
                         option.LoginBehavior = LoginBehavior.Standard;
-                        if (Authoring.DevelopTip.IsEnabled)
-                            Authoring.EditorLogger.Info("💡 目前已關閉強制登入，若需切換登入帳號，可以到 EWova/Editor/Learning Portfolio/Disable Force Login 關閉此設定。");
+                        Authoring.DevelopTip.Info("目前已關閉強制登入，若需切換登入帳號，可以到 EWova/Editor/Learning Portfolio/Disable Force Login 關閉此設定。");
                     }
                     else
                     {
-                        if (Authoring.DevelopTip.IsEnabled)
-                            Authoring.EditorLogger.Info("💡 編輯器開發時，可啟用 EWova/Editor/Learning Portfolio/Disable Force Login 關閉強制登入，在瀏覽器驗證過的情況下可以直接完成驗證，方便開發者重複登入。");
+                        Authoring.DevelopTip.Info("編輯器開發時，可啟用 EWova/Editor/Learning Portfolio/Disable Force Login 關閉強制登入，在瀏覽器驗證過的情況下可以直接完成驗證，方便開發者重複登入。");
                     }
 #endif
                     AuthorizeResult loginResult = await EwovaAuthManager.Instance.AuthorizeViaBrowserAsync(option, cancellationToken: cancellationToken);
@@ -314,41 +315,46 @@ namespace EWova.LearningPortfolio
                     {
                         if (loginResult.Status == AuthorizeProcessResult.Cancelled)
                         {
-                            connectResp.FailureReason = ConnectFailureReason.ManuallyCancel;
+                            process.Status = ConnectStatus.ManuallyCancel;
                         }
                         else if (loginResult.Status == AuthorizeProcessResult.Failed)
                         {
-                            connectResp.FailureReason = ConnectFailureReason.UserAuthFlowFailed;
-                            connectResp.Exception = loginResult.Exception ?? new Exception(loginResult.ErrorMessage ?? "未知的授權錯誤");
+                            process.Status = ConnectStatus.UserAuthFlow;
+                            process.Exception = loginResult.Exception ?? new Exception(loginResult.ErrorMessage ?? "未知的授權錯誤");
                         }
-                        return connectResp;
+                        return;
                     }
                 }
                 catch (OperationCanceledException)
                 {
-                    connectResp.FailureReason = ConnectFailureReason.ManuallyCancel;
-                    return connectResp;
+                    process.Status = ConnectStatus.ManuallyCancel;
+                    return;
                 }
                 catch (Exception ex)
                 {
-                    connectResp.FailureReason = ConnectFailureReason.UserAuthFlowFailed;
-                    connectResp.Exception = ex;
-                    return connectResp;
+                    process.Status = ConnectStatus.UserAuthFlow;
+                    process.Exception = ex;
+                    return;
                 }
             }
-            progress.Report(0.2f);
+            process.Progress = 0.2f;
 
+            var client = new LPApiClient(s_loadedProfile.APISettings, logger: ApiClientLogger);
             var pendingUserData = client.AuthenticatedUserProfile;
             var instance = new GameObject().AddComponent<LearningPortfolio>();
             instance.gameObject.name = $"{Name} ({pendingUserData.Nickname}) connecting...";
             instance.enabled = false;
             instance.m_apiClient = client;
 
-            onTriggerLoginProcessOkIfRequired?.Invoke(pendingUserData);
-            await instance.InternalConnectAsync(connectResp, cancellationToken
-                , Progress.Create<float>(p => progress?.Report(0.2f + (p * 0.7f))));
+            process.PendingAuthUserProfile = pendingUserData;
+            process.Status = ConnectStatus.UserAuthFlowOK;
 
-            if (!connectResp.IsSuccess)
+            ConnectProcess internalProcess = new();
+            internalProcess.OnProgressChanged += p => process.Progress = 0.2f + (p * 0.7f);
+            internalProcess.OnStatusChanged += s => process.Status = s;
+            await instance.InternalConnectAsync(internalProcess, cancellationToken);
+
+            if (!internalProcess.IsSuccess)
             {
                 // 只要連線與獲取資料失敗，則登出以確保狀態一致
                 GameObject.Destroy(instance);
@@ -361,7 +367,9 @@ namespace EWova.LearningPortfolio
                 instance.enabled = true;
                 instance.KeepLoginUsageRecordHeartbeat().Forget();
 
-                progress?.Report(1.0f);
+                process.Progress = 1.0f;
+                process.Status = ConnectStatus.Success;
+
                 Instance = instance;
                 OnUserLogin.InvokeSafely(Instance.m_loginUserData, onThrow: ex =>
                 {
@@ -370,10 +378,11 @@ namespace EWova.LearningPortfolio
                     UnityEngine.Debug.LogException(ex);
                 });
             }
-
-            return connectResp;
         }
         private static bool _isDisconnecting = false;
+
+        public static void Disconnect()
+            => DisconnectAsync().Forget();
         public static async UniTask DisconnectAsync()
         {
             if (_isDisconnecting)
@@ -413,7 +422,7 @@ namespace EWova.LearningPortfolio
                 }
             }
         }
-        public static void Disconnect() => DisconnectAsync().Forget();
+
         public static ProjectRecordShower CreateUserProjectRecordShower(RectTransform rectTransform)
         {
             ProjectRecordShower plane = ProjectRecordShower.InstantiatePlane(rectTransform);
@@ -425,43 +434,50 @@ namespace EWova.LearningPortfolio
             InjectDataToShower(plane, Instance.m_currentUserProjectSheet);
             return plane;
         }
-        public static async UniTask<UpdatingUserProjectRecordResponse> UpdatingUserProjectRecord(CancellationToken ct)
+        public static async UniTask FetchUserProjectSheet(FetchProjectSheetProcess process, CancellationToken ct)
         {
+            using var scope = Scope<FetchProjectSheetProcess>.Warp(process);
+
             if (!IsConnected)
-                return new() { FailureReason = UpdatingUserProjectSheetFailureReason.NotConnected };
+            {
+                process.Status = FetchProjectSheetStatus.FailedNotConnected;
+                process.ClientErrorMessage = "尚未連線到學習歷程服務，無法取得使用者專案紀錄表。請先呼叫 ConnectAsync 並確保連線成功。";
+                return;
+            }
 
             if (Instance.m_isUpdatingUserSheet)
             {
                 await UniTask.WaitUntil(() => !Instance.m_isUpdatingUserSheet, cancellationToken: ct);
-                return UpdatingUserProjectRecordResponse.Success(Instance.m_currentUserProjectSheet);
+                process.Status = FetchProjectSheetStatus.Success;
+                process.Data = Instance.m_currentUserProjectSheet;
+                return;
             }
 
-            var response = new UpdatingUserProjectRecordResponse();
+            process.Status = FetchProjectSheetStatus.FailedFetchProjectSheetInProgress;
 
             Instance.m_isUpdatingUserSheet = true;
             try
             {
-                await Instance.InternalFetchProjectSheetAsync(response, ct);
+                await Instance.InternalFetchProjectSheetAsync(process, ct);
             }
             finally
             {
                 Instance.m_isUpdatingUserSheet = false;
             }
 
-            if (!response.IsSuccess)
+            if (!process.IsSuccess)
             {
-                Debug.LogException(response.Exception);
-                return response;
+                Debug.LogException(process.Exception);
+                return;
             }
 
-            Instance.m_currentUserProjectSheet = response.Data;
+            Instance.m_currentUserProjectSheet = process.Data;
             OnUserProjectRecordUpdated.InvokeSafely(Instance.m_currentUserProjectSheet, onThrow: ex =>
             {
                 if (Logger.ErrorEnabled)
                     Logger.Err("OnUserProjectRecordUpdated handler exception:" + ex);
                 UnityEngine.Debug.LogException(ex);
             });
-            return response;
         }
 
         private static void OnAuthStateChanged(AuthState newState)
@@ -469,93 +485,91 @@ namespace EWova.LearningPortfolio
             if (newState == AuthState.Unauthenticated)
                 DisconnectAsync().Forget();
         }
-        private static async UniTask InternalCheckAvailabilityAsync(CheckAvailabilityResponse response, LPApiClient client, CancellationToken ct = default, IProgress<float> progress = null)
+        private static async UniTask InternalCheckAvailabilityAsync(CheckAvailabilityProcess process, LPApiClient client, CancellationToken ct = default)
         {
+            using var scope = Scope<CheckAvailabilityProcess>.Warp(process);
+
             ct.ThrowIfCancellationRequested();
             try
             {
-                progress?.Report(0.05f);
-
                 // 1. 檢查 API 健康狀態
-                progress?.Report(0.25f);
-                response.FailureReason = CheckAvailabilityFailureReason.ApiCheckApiHealthFailed;
+                process.Progress = 0.05f;
+                process.Status = CheckAvailabilityStatus.ApiCheckApiHealth;
                 await client.CheckApiHealthAsync(ct);
 
                 // 2. 驗證 API 金鑰並取得專案資訊
-                progress?.Report(0.50f);
-                response.FailureReason = CheckAvailabilityFailureReason.ApiGetApiKeyValidInfoFailed;
+                process.Progress = 0.50f;
+                process.Status = CheckAvailabilityStatus.ApiGetApiKeyValidInfo;
                 Api.VerifyProjectInfo valid = await client.GetApiKeyValidInfoAsync(ct);
 
+                process.Status = CheckAvailabilityStatus.CheckApiKeyInvalid;
                 if (!valid.IsValid)
                 {
-                    response.FailureReason = CheckAvailabilityFailureReason.ApiKeyInvalid;
-                    response.ServerErrorMessage = valid.ErrorMessage;
+                    process.ServerErrorMessage = valid.ErrorMessage;
                     return;
                 }
 
                 // 3. 取得專案資訊
-                progress?.Report(0.75f);
-                response.FailureReason = CheckAvailabilityFailureReason.GetProjectFailed;
+                process.Progress = 0.75f;
+                process.Status = CheckAvailabilityStatus.GetProject;
                 Api.Project project = await client.GetProjectAsync(valid.ProjectId, ct);
 
-                progress?.Report(1.0f);
-                response.FailureReason = CheckAvailabilityFailureReason.None;
-                response.Data = project;
+                process.Progress = 1.0f;
+                process.Status = CheckAvailabilityStatus.Success;
+                process.Data = project;
                 return;
             }
             catch (OperationCanceledException)
             {
                 client.Dispose();
-                response.FailureReason = CheckAvailabilityFailureReason.ManuallyCancel;
+                process.Status = CheckAvailabilityStatus.ManuallyCancel;
                 return;
             }
             catch (Exception ex)
             {
                 client.Dispose();
-
-                if (response.FailureReason == CheckAvailabilityFailureReason.None)
-                    response.FailureReason = CheckAvailabilityFailureReason.Unknown;
-
-                response.Exception = ex;
+                process.Exception = ex;
                 return;
             }
         }
-        private async UniTask InternalConnectAsync(ConnectResponse response, CancellationToken ct = default, IProgress<float> progress = null)
+        private async UniTask InternalConnectAsync(ConnectProcess process, CancellationToken ct = default)
         {
+            using var scope = Scope<ConnectProcess>.Warp(process);
+
             var client = m_apiClient;
             try
             {
-                progress?.Report(0.05f);
-                CheckAvailabilityResponse checkProAvaRsp = new CheckAvailabilityResponse();
-                await InternalCheckAvailabilityAsync(checkProAvaRsp, client, ct
-                    , Progress.Create<float>(p => progress?.Report(0.05f + (p * 0.35f))));
-
-                if (!checkProAvaRsp.IsSuccess)
+                process.Progress = 0.05f;
+                CheckAvailabilityProcess checkProAvaProcess = new CheckAvailabilityProcess();
+                checkProAvaProcess.OnProgressChanged += p => process.Progress = 0.05f + (p * 0.35f);
+                checkProAvaProcess.OnStatusChanged += s =>
                 {
-                    response.FailureReason = checkProAvaRsp.FailureReason switch
+                    process.Status = s switch
                     {
-                        CheckAvailabilityFailureReason.DefaultSettingsLoadFailed
-                            => ConnectFailureReason.CheckAvailability_DefaultSettingsLoadFailed,
-                        CheckAvailabilityFailureReason.ApiCheckApiHealthFailed
-                            => ConnectFailureReason.CheckAvailability_ApiCheckApiHealthFailed,
-                        CheckAvailabilityFailureReason.ApiGetApiKeyValidInfoFailed
-                            => ConnectFailureReason.CheckAvailability_ApiGetApiKeyValidInfoFailed,
-                        CheckAvailabilityFailureReason.ApiKeyInvalid
-                            => ConnectFailureReason.CheckAvailability_ApiKeyInvalid,
-                        CheckAvailabilityFailureReason.GetProjectFailed
-                            => ConnectFailureReason.CheckAvailability_GetProjectFailed,
+                        CheckAvailabilityStatus.DefaultSettingsLoad
+                            => ConnectStatus.CheckAvailability_DefaultSettingsLoad,
+                        CheckAvailabilityStatus.ApiCheckApiHealth
+                            => ConnectStatus.CheckAvailability_ApiCheckApiHealth,
+                        CheckAvailabilityStatus.ApiGetApiKeyValidInfo
+                            => ConnectStatus.CheckAvailability_ApiGetApiKeyValidInfo,
+                        CheckAvailabilityStatus.CheckApiKeyInvalid
+                            => ConnectStatus.CheckAvailability_ApiKeyInvalid,
+                        CheckAvailabilityStatus.GetProject
+                            => ConnectStatus.CheckAvailability_GetProject,
                         _
-                            => ConnectFailureReason.Unknown
+                            => ConnectStatus.CheckAvailability
                     };
-                    response.ServerErrorMessage = checkProAvaRsp.ServerErrorMessage;
-                    return;
-                }
+                };
+                await InternalCheckAvailabilityAsync(checkProAvaProcess, client, ct);
 
-                Api.Project project = checkProAvaRsp.Data;
+                if (!checkProAvaProcess.IsSuccess)
+                    return;
+
+                Api.Project project = checkProAvaProcess.Data;
 
                 // 建立專案使用紀錄
-                progress?.Report(0.4f);
-                response.FailureReason = ConnectFailureReason.CreateProjectUsageSheetFailed;
+                process.Progress = 0.4f;
+                process.Status = ConnectStatus.CreateProjectUsageSheet;
                 var info = DeviceHelper.GetDeviceInfo();
                 var authUserProfile = client.AuthenticatedUserProfile;
                 var record = await client.CreateProjectUsageRecordAsync
@@ -591,32 +605,34 @@ namespace EWova.LearningPortfolio
                 m_connectedProject = project;
                 m_netServiceRequestHandler = new NetServiceRequestHandler();
 
-                response.FailureReason = ConnectFailureReason.FetchProjectSheetFailed;
+                process.Status = ConnectStatus.FetchProjectSheet;
 
                 EwovaAuthManager.Instance.OnAuthStateChanged += OnAuthStateChanged;
 
-                progress?.Report(0.5f);
-                UpdatingUserProjectRecordResponse fetchProSheet = new();
-                await InternalFetchProjectSheetAsync(fetchProSheet, ct
-                    , Progress.Create<float>(p => progress?.Report(0.5f + (p * 0.4f))));
+                process.Progress = 0.5f;
+                FetchProjectSheetProcess fetchProSheet = new();
+                fetchProSheet.OnProgressChanged += p => process.Progress = 0.5f + (p * 0.4f);
+                fetchProSheet.OnStatusChanged += s =>
+                {
+                    process.Status = fetchProSheet.Status switch
+                    {
+                        FetchProjectSheetStatus.FindSheets
+                            => ConnectStatus.FetchProjectSheet_FindSheets,
+                        FetchProjectSheetStatus.GetSheet
+                            => ConnectStatus.FetchProjectSheet_GetSheet,
+                        FetchProjectSheetStatus.InternalHandleSheet
+                            => ConnectStatus.FetchProjectSheet_InternalHandleSheet,
+                        FetchProjectSheetStatus.ManuallyCancel
+                            => ConnectStatus.ManuallyCancel,
+                        _
+                            => ConnectStatus.FetchProjectSheet
+                    };
+                };
+                await InternalFetchProjectSheetAsync(fetchProSheet, ct);
 
                 if (!fetchProSheet.IsSuccess)
                 {
-                    response.FailureReason = fetchProSheet.FailureReason switch
-                    {
-                        UpdatingUserProjectSheetFailureReason.FindSheetsFailed
-                            => ConnectFailureReason.FetchProjectSheet_FindSheetsFailed,
-                        UpdatingUserProjectSheetFailureReason.GetSheetFailed
-                            => ConnectFailureReason.FetchProjectSheet_GetSheetFailed,
-                        UpdatingUserProjectSheetFailureReason.InternalHandleSheetFailed
-                            => ConnectFailureReason.FetchProjectSheet_InternalHandleSheetFailed,
-                        UpdatingUserProjectSheetFailureReason.ManuallyCancel
-                            => ConnectFailureReason.ManuallyCancel,
-                        _
-                            => ConnectFailureReason.FetchProjectSheetFailed
-                    };
-
-                    if (response.FailureReason == ConnectFailureReason.ManuallyCancel)
+                    if (fetchProSheet.Status == FetchProjectSheetStatus.ManuallyCancel)
                     {
                         if (Logger.WarnEnabled)
                             Logger.Warn("Fetch project sheet cancelled by user.");
@@ -624,7 +640,7 @@ namespace EWova.LearningPortfolio
                     else
                     {
                         if (Logger.ErrorEnabled)
-                            Logger.Err($"Fetch project sheet failed. Failure reason: {response.FailureReason}");
+                            Logger.Err($"Fetch project sheet failed. Failure reason: {fetchProSheet.Status}");
 
                         if (fetchProSheet.Exception != null)
                             UnityEngine.Debug.LogException(fetchProSheet.Exception);
@@ -637,47 +653,47 @@ namespace EWova.LearningPortfolio
                 // callback
                 m_currentUserProjectSheet = fetchProSheet.Data;
 
-                response.Exception = null;
-                response.FailureReason = ConnectFailureReason.None;
-                response.Data = this;
-                progress?.Report(1.0f);
+                process.Exception = null;
+                process.Status = ConnectStatus.Success;
+                process.Data = this;
+                process.Progress = 1.0f;
             }
             catch (LearningPortfolioApiException apiEx)
             {
-                response.Exception = apiEx;
+                process.Exception = apiEx;
                 if (apiEx.SourceApiEx.IsServerError)
-                    response.ServerErrorMessage = apiEx.SourceApiEx.Message;
+                    process.ServerErrorMessage = apiEx.SourceApiEx.Message;
             }
             catch (OperationCanceledException)
             {
-                response.FailureReason = ConnectFailureReason.ManuallyCancel;
+                process.Status = ConnectStatus.ManuallyCancel;
             }
             catch (Exception ex)
             {
-                if (response.FailureReason == ConnectFailureReason.None)
-                    response.FailureReason = ConnectFailureReason.Unknown;
-                response.Exception = ex;
+                process.Exception = ex;
             }
         }
-        private async UniTask InternalFetchProjectSheetAsync(UpdatingUserProjectRecordResponse response, CancellationToken ct, IProgress<float> progress = null)
+        private async UniTask InternalFetchProjectSheetAsync(FetchProjectSheetProcess process, CancellationToken ct)
         {
+            using var scope = Scope<FetchProjectSheetProcess>.Warp(process);
+
             Dictionary<string, List<Action<Texture2D>>> texResourceHandle = new();
 
             UserProjectRecordSheet RESULT = null;
             try
             {
-                response.FailureReason = UpdatingUserProjectSheetFailureReason.FindSheetsFailed;
+                process.Status = FetchProjectSheetStatus.FindSheets;
                 #region 1. 尋找使用者所有紀錄，並選擇第一個；若無紀錄將會自動建立一筆新的紀錄。
-                progress?.Report(0.05f);
+                process.Progress = 0.05f;
                 List<string> FoundSheets = await m_apiClient.FindSheetsAsync(m_connectedProject.Id.ToString(), ct);
                 string targetSheet = FoundSheets[0];
-                progress?.Report(0.10f);
+                process.Progress = 0.10f;
                 #endregion
 
-                response.FailureReason = UpdatingUserProjectSheetFailureReason.GetSheetFailed;
+                process.Status = FetchProjectSheetStatus.GetSheet;
                 #region 2. 取得紀錄內容
                 Api.Sheet _rawSheet = await m_apiClient.GetSheetAsync(targetSheet, ct);
-                progress?.Report(0.20f);
+                process.Progress = 0.20f;
                 #endregion
 
                 RESULT = new UserProjectRecordSheet(
@@ -698,7 +714,7 @@ namespace EWova.LearningPortfolio
                     Pages = new Page[_rawSheet.PageLabels.Length]
                 };
 
-                response.FailureReason = UpdatingUserProjectSheetFailureReason.InternalHandleSheetFailed;
+                process.Status = FetchProjectSheetStatus.InternalHandleSheet;
                 #region 3. 初始化路徑節點節點的標記與取消標記方法
                 RESULT.SetCompleteIncludeNonNode = new NetSerivceRequest<string>
                 (
@@ -1082,13 +1098,13 @@ namespace EWova.LearningPortfolio
                     if (totalPages > 0)
                     {
                         float pageProgress = 0.20f + ((float)(i + 1) / totalPages) * 0.30f;
-                        progress?.Report(pageProgress);
+                        process.Progress = pageProgress;
                     }
                 }
 
                 // 階段 4：載入首頁特定欄位總結（完成後達到 80%）
                 await LoadFirstPageColumnSummary(ct);
-                progress?.Report(0.80f);
+                process.Progress = 0.80f;
 
                 async UniTask LoadFirstPageColumnSummary(CancellationToken ct = default)
                 {
@@ -1148,40 +1164,35 @@ namespace EWova.LearningPortfolio
                     // 進度計算與更新（因為前面過濾了，totalTextures 必定 > 0）
                     currentTextureCount++;
                     float texProgress = 0.80f + ((float)currentTextureCount / totalTextures) * 0.20f;
-                    progress?.Report(texProgress);
+                    process.Progress = texProgress;
 
                     await UniTask.Yield(ct);
                 }
                 #endregion
 
-                response.FailureReason = UpdatingUserProjectSheetFailureReason.None;
-                response.Data = RESULT;
+                process.Status = FetchProjectSheetStatus.Success;
+                process.Data = RESULT;
 
                 // 最終完成確保報告 1.0
-                progress?.Report(1.0f);
+                process.Progress = 1.0f;
             }
             catch (LearningPortfolioApiException apiEx)
             {
                 RESULT?.Dispose();
 
-                response.FailureReason = UpdatingUserProjectSheetFailureReason.InternalHandleSheetFailed;
-                response.ServerErrorMessage = apiEx.Message;
-                response.Exception = apiEx;
+                process.ServerErrorMessage = apiEx.Message;
+                process.Exception = apiEx;
             }
             catch (OperationCanceledException)
             {
                 RESULT?.Dispose();
 
-                response.FailureReason = UpdatingUserProjectSheetFailureReason.ManuallyCancel;
+                process.Status = FetchProjectSheetStatus.ManuallyCancel;
             }
             catch (Exception ex)
             {
                 RESULT?.Dispose();
-
-                if (response.FailureReason == UpdatingUserProjectSheetFailureReason.None)
-                    response.FailureReason = UpdatingUserProjectSheetFailureReason.Unknown;
-
-                response.Exception = ex;
+                process.Exception = ex;
                 return;
             }
             finally

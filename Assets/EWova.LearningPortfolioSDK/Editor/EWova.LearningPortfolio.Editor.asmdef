@@ -1,6 +1,6 @@
 {
     "name": "EWova.LearningPortfolio.Editor",
-    "rootNamespace": "",
+    "rootNamespace": "EWova.LearningPortfolio.Editor",
     "references": [
         "GUID:0b34836ace6cdc74d8185cadaf082ad5",
         "GUID:793cc03aa22dc804cb53c53bb8195c57",

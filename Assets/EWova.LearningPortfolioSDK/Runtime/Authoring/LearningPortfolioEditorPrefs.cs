@@ -14,7 +14,6 @@ namespace EWova.Authoring
             DisableForceLogin = DefaultDisableForceLogin;
         }
 
-        #region DisableForceLogin
         /// <summary>
         /// 是否在瀏覽器驗證時跳過強制登入的步驟。true 時，如瀏覽器已驗證過，則將跳過驗證，但在某些情況下可能會要求使用者重新登入。false 時，瀏覽器跳轉驗證時將強制要求使用者登入。
         /// </summary>
@@ -23,13 +22,15 @@ namespace EWova.Authoring
         {
             get
             {
-                return EWovaEditorPrefs.instance.GetBool(DisableForceLoginPrefKey, DefaultDisableForceLogin);
+                return EWovaEditorPrefs.GetBool(DisableForceLoginPrefKey, DefaultDisableForceLogin);
             }
             set
             {
-                EWovaEditorPrefs.instance.SetBool(DisableForceLoginPrefKey, value);
+                EWovaEditorPrefs.SetBool(DisableForceLoginPrefKey, value);
             }
         }
+
+        #region DisableForceLogin
         private const string DisableForceLoginMenuPath = "EWova/Editor/Learning Portfolio/Disable Force Login";
         private const string DisableForceLoginPrefKey = "LP_EditorDisableForceLogin";
         [MenuItem(DisableForceLoginMenuPath, false, 1)]
