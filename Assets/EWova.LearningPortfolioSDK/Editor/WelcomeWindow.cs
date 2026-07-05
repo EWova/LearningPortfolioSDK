@@ -121,10 +121,10 @@ namespace EWova.LearningPortfolio.Editor
 
             GUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
-            bool neverShow = GUILayout.Toggle(!neverShowAgain, "不再顯示此頁面 Don't show again", GUILayout.Height(30), GUILayout.Width(220));
-            if (neverShowAgain != !neverShow)
+            bool neverShow = GUILayout.Toggle(neverShowAgain, "不再顯示此頁面 Don't show again", GUILayout.Height(30), GUILayout.Width(220));
+            if (neverShowAgain != neverShow)
             {
-                neverShowAgain = !neverShow;
+                neverShowAgain = neverShow;
                 EWovaEditorPrefs.SetBool(NEVER_SHOW_AGAIN_KEY, neverShowAgain);
             }
             GUILayout.FlexibleSpace();
