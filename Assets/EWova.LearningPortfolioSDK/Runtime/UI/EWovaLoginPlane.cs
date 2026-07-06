@@ -369,37 +369,22 @@ namespace EWova.LearningPortfolio
         }
         private float _connectingTimer = 0f;
         private bool _isConnectingExecuting = false;
-        private bool _isXRRunning = false;
-        public bool IsXREnvironment()
-        {
-            List<XRDisplaySubsystem> displaySubsystems = new List<XRDisplaySubsystem>();
-            SubsystemManager.GetSubsystems(displaySubsystems);
-            foreach (var subsystem in displaySubsystems)
-            {
-                if (subsystem.running)
-                    return true;
-            }
-            return false;
-        }
         private void Update()
         {
             if (CurrentStatus == Status.LPConnectProcessing)
             {
                 if (!_isConnectingExecuting)
-                {
-                    _isXRRunning = IsXREnvironment();
                     _isConnectingExecuting = true;
-                }
+
                 _connectingTimer += Time.deltaTime;
 
                 // 8 秒後，若使用者仍在等待登入，且環境支援 DeepLink 登入，則顯示提示訊息
                 if (_connectingTimer > 8f)
                 {
-                    if (_isXRRunning
-                        && EwovaAuthManager.Instance.IsSupportAuthorizeViaDeepLink
+                    if (EwovaAuthManager.Instance.IsSupportAuthorizeViaDeepLink
                         && (Application.platform is RuntimePlatform.WindowsPlayer or RuntimePlatform.WindowsEditor))
                     {
-                        UI.LoginRedirectPCLinkIssueTipText.SetActive(true);
+                        UI.LoginRedirectPCIssueTipText.SetActive(true);
                     }
                 }
 
@@ -416,7 +401,7 @@ namespace EWova.LearningPortfolio
             {
                 if (_isConnectingExecuting)
                 {
-                    UI.LoginRedirectPCLinkIssueTipText.SetActive(false);
+                    UI.LoginRedirectPCIssueTipText.SetActive(false);
                     _connectingTimer = 0f;
                     _isConnectingExecuting = false;
                 }
