@@ -37,7 +37,7 @@ namespace EWova.LearningPortfolio
         [Header("Login Redirect")]
         public GameObject LoginRedirectRoot;
         public Transform LoginRedirectIconRotate;
-        public Button CancelLoginButton;
+        public BinderButton CancelLoginButton;
         public GameObject LoginRedirectPCIssueTipText;
 
         [Header("Getting User Data")]
@@ -82,6 +82,14 @@ namespace EWova.LearningPortfolio
                 , SecondaryDisabledColor);
             LoginSkipButton.BindingState(
                 LoginSkipButtonChildImage
+                , SecondaryNormalColor
+                , SecondaryHighlightedColor
+                , SecondaryHighlightedColor
+                , SecondaryNormalColor
+                , SecondaryDisabledColor);
+
+            CancelLoginButton.BindingState(
+                CancelLoginButton.GetComponentInChildren<TextMeshProUGUI>()
                 , SecondaryNormalColor
                 , SecondaryHighlightedColor
                 , SecondaryHighlightedColor

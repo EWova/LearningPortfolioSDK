@@ -381,10 +381,7 @@ namespace EWova.LearningPortfolio
                 // 8 秒後，若使用者仍在等待登入，則顯示提示訊息 ( 僅 PC 端顯示，行動裝置不顯示 )
                 if (_connectingTimer > 8f)
                 {
-                    if (Application.platform is not RuntimePlatform.Android and not RuntimePlatform.IPhonePlayer)
-                    {
-                        UI.LoginRedirectPCIssueTipText.SetActive(true);
-                    }
+                    UI.LoginRedirectPCIssueTipText.SetActive(true);
                 }
 
                 // 60 秒後，若使用者仍在等待登入，則視為逾時，取消登入流程
