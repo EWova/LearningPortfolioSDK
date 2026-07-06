@@ -4943,7 +4943,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u6B63\u5728\u700F\u89BD\u5668\u7B49\u5F85\u9A57\u8B49\u4E2D...\n\u5982\u679C\u60A8\u5728\u700F\u89BD\u5668\u5DF2\u5B8C\u6210\u767B\u5165\uFF0C\u8ACB\u5617\u8A66\u9EDE\u64CA\u9019\u500B\u8996\u7A97\u4F86\u559A\u9192\u61C9\u7528\u7A0B\u5F0F\u3002"
+  m_text: "\u6B63\u5728\u700F\u89BD\u5668\u7B49\u5F85\u9A57\u8B49\u4E2D...\n\u82E5\u5DF2\u5B8C\u6210\u767B\u5165\u7B49\u5F85\u904E\u4E45\uFF0C\u8ACB\u9EDE\u64CA\u9019\u500B\u8996\u7A97\u4F86\u5617\u8A66\u559A\u9192\u61C9\u7528\u7A0B\u5F0F\u3002"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 45b3e8cb6bbf57d4fa5b3c34f8ebb9b8, type: 2}
   m_sharedMaterial: {fileID: 4956122590399797695, guid: 45b3e8cb6bbf57d4fa5b3c34f8ebb9b8, type: 2}
