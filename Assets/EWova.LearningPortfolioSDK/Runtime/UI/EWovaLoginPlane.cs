@@ -378,11 +378,10 @@ namespace EWova.LearningPortfolio
 
                 _connectingTimer += Time.deltaTime;
 
-                // 8 秒後，若使用者仍在等待登入，且環境支援 DeepLink 登入，則顯示提示訊息
+                // 8 秒後，若使用者仍在等待登入，則顯示提示訊息 ( 僅 PC 端顯示，行動裝置不顯示 )
                 if (_connectingTimer > 8f)
                 {
-                    if (EwovaAuthManager.Instance.IsSupportAuthorizeViaDeepLink
-                        && (Application.platform is RuntimePlatform.WindowsPlayer or RuntimePlatform.WindowsEditor))
+                    if (Application.platform is not RuntimePlatform.Android and not RuntimePlatform.IPhonePlayer)
                     {
                         UI.LoginRedirectPCIssueTipText.SetActive(true);
                     }
