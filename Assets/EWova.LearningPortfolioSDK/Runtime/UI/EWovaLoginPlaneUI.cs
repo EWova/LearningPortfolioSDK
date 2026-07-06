@@ -38,6 +38,7 @@ namespace EWova.LearningPortfolio
         public GameObject LoginRedirectRoot;
         public Transform LoginRedirectIconRotate;
         public Button CancelLoginButton;
+        public GameObject LoginRedirectPCLinkIssueTipText;
 
         [Header("Getting User Data")]
         public GameObject GettingUserDataRoot;
@@ -94,6 +95,8 @@ namespace EWova.LearningPortfolio
                 , SecondaryHighlightedColor
                 , SecondaryNormalColor
                 , SecondaryDisabledColor);
+
+            LoginRedirectPCLinkIssueTipText.SetActive(false);
         }
 
         private void Update()

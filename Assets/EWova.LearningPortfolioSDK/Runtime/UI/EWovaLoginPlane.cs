@@ -4,6 +4,9 @@ using UnityEngine.Events;
 using Cysharp.Threading.Tasks;
 using System.Threading;
 using System;
+using EWova.Auth;
+using UnityEngine.XR;
+using System.Collections.Generic;
 
 namespace EWova.LearningPortfolio
 {
@@ -363,6 +366,61 @@ namespace EWova.LearningPortfolio
 
             CurrentStatus = Status.CheckAvailabilityOK;
             LearningPortfolio.Disconnect();
+        }
+        private float _connectingTimer = 0f;
+        private bool _isConnectingExecuting = false;
+        private bool _isXRRunning = false;
+        public bool IsXREnvironment()
+        {
+            List<XRDisplaySubsystem> displaySubsystems = new List<XRDisplaySubsystem>();
+            SubsystemManager.GetSubsystems(displaySubsystems);
+            foreach (var subsystem in displaySubsystems)
+            {
+                if (subsystem.running)
+                    return true;
+            }
+            return false;
+        }
+        private void Update()
+        {
+            if (CurrentStatus == Status.LPConnectProcessing)
+            {
+                if (!_isConnectingExecuting)
+                {
+                    _isXRRunning = IsXREnvironment();
+                    _isConnectingExecuting = true;
+                }
+                _connectingTimer += Time.deltaTime;
+
+                // 8 秒後，若使用者仍在等待登入，且環境支援 DeepLink 登入，則顯示提示訊息
+                if (_connectingTimer > 8f)
+                {
+                    if (_isXRRunning
+                        && EwovaAuthManager.Instance.IsSupportAuthorizeViaDeepLink
+                        && (Application.platform is RuntimePlatform.WindowsPlayer or RuntimePlatform.WindowsEditor))
+                    {
+                        UI.LoginRedirectPCLinkIssueTipText.SetActive(true);
+                    }
+                }
+
+                // 60 秒後，若使用者仍在等待登入，則視為逾時，取消登入流程
+                if (_connectingTimer > 60f)
+                {
+                    _connectingTimer = 0f;
+                    UI.SetLoginStateText("連線逾時，請檢查網路連線或稍後再試。", LogType.Error);
+                    TryCancelConnect();
+                    CurrentStatus = Status.CheckAvailabilityOK;
+                }
+            }
+            else
+            {
+                if (_isConnectingExecuting)
+                {
+                    UI.LoginRedirectPCLinkIssueTipText.SetActive(false);
+                    _connectingTimer = 0f;
+                    _isConnectingExecuting = false;
+                }
+            }
         }
         private void Reprint()
         {
