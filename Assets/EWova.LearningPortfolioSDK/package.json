@@ -3,6 +3,9 @@
   "version": "2026.6.1",
   "displayName": "EWova.LearningPortfolioSDK",
   "description": "EWova.LearningPortfolioSDK",
+  "dependencies": {
+    "com.ewova.core": "1.6.1"
+  },
   "samples": [
     {
       "displayName": "BasicAssets",
