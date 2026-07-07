@@ -38,7 +38,7 @@ namespace EWova.LearningPortfolio
         public ApiSettings CurrentAPISettings { get; private set; }
 
         public LPApiClient(ApiSettings apiSettings, Logger logger = null)
-            : this(apiSettings, EwovaAuthManager.Instance, logger) { }
+            : this(apiSettings, LearningPortfolio.EWovaAuth, logger) { }
         internal LPApiClient(ApiSettings apiSettings, IAuthManager authManager, Logger logger)
             : base(authManager, LPServiceUrl, logger)
         {

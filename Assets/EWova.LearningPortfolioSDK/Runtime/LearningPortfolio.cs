@@ -20,8 +20,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 
-using UnityEditor.PackageManager;
-
 using UnityEngine;
 
 namespace EWova.LearningPortfolio
@@ -65,6 +63,8 @@ namespace EWova.LearningPortfolio
         }
 
         public static readonly string Name = "[EWova]LearningPortfolio";
+        public static readonly LearningPortfolioEWovaAuth EWovaAuth = new LearningPortfolioEWovaAuth();
+
         private static readonly Logger Logger = new(Name + ' ', LogLevel.Full);
         private static readonly Logger ApiClientLogger = new(Name + "-ApiClient ", LogLevel.Warn | LogLevel.Error);
         /// <summary>
@@ -156,8 +156,8 @@ namespace EWova.LearningPortfolio
         }
         private void OnDestroy()
         {
-            if (EwovaAuthManager.Instance != null)
-                EwovaAuthManager.Instance.OnAuthStateChanged -= OnAuthStateChanged;
+            if (EWovaAuth != null)
+                EWovaAuth.OnAuthStateChanged -= OnAuthStateChanged;
 
             if (s_instance == this)
             {
@@ -234,7 +234,7 @@ namespace EWova.LearningPortfolio
                 return;
             }
 
-            if (!EwovaAuthManager.Instance.IsSupportAuthorizeViaDeepLink)
+            if (!AuthProvider.IsSupportAuthorizeViaDeepLink)
             {
                 process.Status = CheckAvailabilityStatus.PlatformNotSupportLogin;
                 process.ClientErrorMessage = "當前平台不支援使用系統瀏覽器進行 DeepLink 跳轉授權，無法使用學習歷程服務。";
@@ -291,7 +291,7 @@ namespace EWova.LearningPortfolio
             }
             process.Progress = 0.05f;
 
-            if (!EwovaAuthManager.Instance.IsAuthenticated)
+            if (!EWovaAuth.IsAuthenticated)
             {
                 process.Status = ConnectStatus.UserAuthFlow;
                 process.Progress = 0.1f;
@@ -310,7 +310,7 @@ namespace EWova.LearningPortfolio
                         Authoring.DevelopTip.Info("編輯器開發時，可啟用 EWova/Editor/Learning Portfolio/Disable Force Login 關閉強制登入，在瀏覽器驗證過的情況下可以直接完成驗證，方便開發者重複登入。");
                     }
 #endif
-                    AuthorizeResult loginResult = await EwovaAuthManager.Instance.AuthorizeViaBrowserAsync(option, cancellationToken: cancellationToken);
+                    AuthorizeResult loginResult = await EWovaAuth.AuthorizeViaBrowserAsync(option, cancellationToken: cancellationToken);
                     if (loginResult.Status != AuthorizeProcessResult.Success)
                     {
                         if (loginResult.Status == AuthorizeProcessResult.Cancelled)
@@ -359,7 +359,7 @@ namespace EWova.LearningPortfolio
                 // 只要連線與獲取資料失敗，則登出以確保狀態一致
                 GameObject.Destroy(instance);
                 client.Dispose();
-                EwovaAuthManager.Instance.Logout();
+                EWovaAuth.Logout();
             }
             else
             {
@@ -401,7 +401,7 @@ namespace EWova.LearningPortfolio
                 if (go != null)
                     GameObject.Destroy(go);
 
-                EwovaAuthManager.Instance.Logout();
+                EWovaAuth.Logout();
             }
             finally
             {
@@ -607,7 +607,7 @@ namespace EWova.LearningPortfolio
 
                 process.Status = ConnectStatus.FetchProjectSheet;
 
-                EwovaAuthManager.Instance.OnAuthStateChanged += OnAuthStateChanged;
+                EWovaAuth.OnAuthStateChanged += OnAuthStateChanged;
 
                 process.Progress = 0.5f;
                 FetchProjectSheetProcess fetchProSheet = new();
@@ -646,7 +646,7 @@ namespace EWova.LearningPortfolio
                             UnityEngine.Debug.LogException(fetchProSheet.Exception);
                     }
 
-                    EwovaAuthManager.Instance.OnAuthStateChanged -= OnAuthStateChanged;
+                    EWovaAuth.OnAuthStateChanged -= OnAuthStateChanged;
                     return;
                 }
 
