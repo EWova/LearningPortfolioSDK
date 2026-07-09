@@ -221,6 +221,11 @@ namespace EWova.LearningPortfolio
         Success = STATUS.Success,
 
         /// <summary>
+        /// 連線被自訂邏輯阻擋，預設不會阻擋，通常是開發者額外的邏輯判斷
+        /// </summary>
+        ConnectBlockedByCustomLogic = 50,
+
+        /// <summary>
         /// 使用者認證
         /// </summary>
         UserAuthFlow = 101,

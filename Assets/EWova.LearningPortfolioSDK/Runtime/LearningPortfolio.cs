@@ -60,6 +60,7 @@ namespace EWova.LearningPortfolio
             OnUserLogin = null;
             OnUserLogout = null;
             OnUserProjectRecordUpdated = null;
+            ConnectBlocker.Clear();
         }
 
         public static readonly string Name = "[EWova]LearningPortfolio";
@@ -145,6 +146,13 @@ namespace EWova.LearningPortfolio
         /// 登入中的使用者專案紀錄表
         /// </summary>
         public static UserProjectRecordSheet LoggedUserProjectRecordSheet => IsConnected ? Instance.m_currentUserProjectSheet : null;
+        /// <summary>
+        /// 自訂的連線前置檢查要求，若有任何一個回傳 false，則 Connect 將會被阻擋，並回傳對應的錯誤訊息。
+        /// </summary>
+        /// <remarks>
+        /// 預設不會阻擋連線，但開發者有需求可以在此加入自訂的檢查邏輯，如：遊戲進行中，不允許後續連線到學習歷程服務等需求
+        /// </remarks>
+        public static readonly List<Func<(bool allow, string notAllowMsg)>> ConnectBlocker = new();
 
         public static event Action<UserData> OnUserLogin;
         public static event Action OnUserLogout;
@@ -264,6 +272,20 @@ namespace EWova.LearningPortfolio
             CancellationToken cancellationToken = default)
         {
             using var scope = Scope<ConnectProcess>.Warp(process);
+
+            if (ConnectBlocker.Count > 0)
+            {
+                foreach (var require in ConnectBlocker)
+                {
+                    (bool isAllow, string notAllowMsg) = require.Invoke();
+                    if (!isAllow)
+                    {
+                        process.Status = ConnectStatus.ConnectBlockedByCustomLogic;
+                        process.ClientErrorMessage = notAllowMsg;
+                        return;
+                    }
+                }
+            }
 
             if (process == null)
                 throw new ArgumentNullException(nameof(process));

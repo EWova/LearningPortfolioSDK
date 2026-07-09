@@ -301,6 +301,10 @@ namespace EWova.LearningPortfolio
                             // TODO: 待本地化
                             switch (cause)
                             {
+                                case ConnectStatus.ConnectBlockedByCustomLogic:
+                                    UI.SetLoginStateText($"目前不允許連線，請稍後再試。若問題持續，請聯絡開發團隊。\n{result.ClientErrorMessage}", LogType.Error);
+                                    break;
+
                                 case ConnectStatus.CheckAvailability_DefaultSettingsLoad:
                                     UI.SetLoginStateText("系統初始化失敗，請嘗試重新開啟應用程式。\n若問題持續，請聯絡開發團隊。", LogType.Error);
                                     break;
