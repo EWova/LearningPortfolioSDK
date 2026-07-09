@@ -1247,6 +1247,7 @@ namespace EWova.LearningPortfolio
                 return null;
             return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
         }
+        private string footerText;
         private static void InjectDataToShower(ProjectRecordShower plane, UserProjectRecordSheet userProjectRecord)
         {
             plane.Clear();
@@ -1310,7 +1311,7 @@ namespace EWova.LearningPortfolio
                 plane.AddPage(page.Label, content);
             }
 
-            plane.Footer.text = $"你的完成進度為 {(int)(userProjectRecord.CompletionProgress * 100f)}% ！";
+            plane.Footer.text = $"正在檢視 <color=#F80>{EWovaAuth.CurrentUser.Nickname}</color> 的學習資料！ 目前的學習完成度為 <color=#F80>{(int)(userProjectRecord.CompletionProgress * 100f)}%</color> ！";
         }
         private static LearningPortfolioProfile LoadOrGetProfile()
         {
