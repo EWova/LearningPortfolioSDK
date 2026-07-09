@@ -61,10 +61,11 @@ namespace EWova.LearningPortfolio
             OnUserLogout = null;
             OnUserProjectRecordUpdated = null;
             ConnectBlocker.Clear();
+            EWovaAuth = new LearningPortfolioEWovaAuth();
         }
 
         public static readonly string Name = "[EWova]LearningPortfolio";
-        public static readonly LearningPortfolioEWovaAuth EWovaAuth = new LearningPortfolioEWovaAuth();
+        public static LearningPortfolioEWovaAuth EWovaAuth { get; private set; }
 
         private static readonly Logger Logger = new(Name + ' ', LogLevel.Full);
         private static readonly Logger ApiClientLogger = new(Name + "-ApiClient ", LogLevel.Warn | LogLevel.Error);
