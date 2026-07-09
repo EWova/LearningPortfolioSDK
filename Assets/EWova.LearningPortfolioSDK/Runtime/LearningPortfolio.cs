@@ -163,9 +163,9 @@ namespace EWova.LearningPortfolio
 
                 foreach (var require in ConnectBlocker)
                 {
-                    (bool isAllow, string notAllowMsg) = require.Invoke();
-                    if (!isAllow)
-                        return (true, notAllowMsg);
+                    (bool isBlocked, string bloackedMsg) = require.Invoke();
+                    if (isBlocked)
+                        return (true, bloackedMsg);
                 }
                 return (false, null);
             }
@@ -290,12 +290,12 @@ namespace EWova.LearningPortfolio
         {
             using var scope = Scope<ConnectProcess>.Warp(process);
 
-            (bool isBlocked, string bloackedMsg) = IsConnectBlockedByCustomLogic;
+            (bool isBlocked, string blockedMessage) = IsConnectBlockedByCustomLogic;
 
             if (isBlocked)
             {
                 process.Status = ConnectStatus.ConnectBlockedByCustomLogic;
-                process.ClientErrorMessage = bloackedMsg;
+                process.ClientErrorMessage = blockedMessage;
                 return;
             }
 
