@@ -48,7 +48,7 @@ namespace EWova.LearningPortfolio.Editor
                 m_isApiKeyValid = 0;
                 m_message = null;
 
-                var apiClient = new LPApiClient(new ApiSettings(m_stringApiKey.stringValue), null, null);
+                var apiClient = new LPApiClient(new ProjectSettings(m_stringApiKey.stringValue), null, null);
 
                 UniTask.Void(async () =>
                 {

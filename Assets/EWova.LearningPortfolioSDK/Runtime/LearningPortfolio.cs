@@ -25,9 +25,9 @@ using UnityEngine;
 namespace EWova.LearningPortfolio
 {
     [Serializable]
-    public struct ApiSettings
+    public struct ProjectSettings
     {
-        public ApiSettings(string apiKey)
+        public ProjectSettings(string apiKey)
         {
             APIKey = apiKey;
         }
@@ -56,7 +56,6 @@ namespace EWova.LearningPortfolio
         public static void Init()
         {
             s_instance = null;
-            s_loadedProfile = null;
             OnUserLogin = null;
             OnUserLogout = null;
             OnUserProjectRecordUpdated = null;
@@ -124,8 +123,6 @@ namespace EWova.LearningPortfolio
             }
         }
 #endif
-
-        private static LearningPortfolioProfile s_loadedProfile;
 
         private LPApiClient m_apiClient;
         [SerializeField] private UserData m_loginUserData;
@@ -240,15 +237,9 @@ namespace EWova.LearningPortfolio
             ct.ThrowIfCancellationRequested();
 
             process.Status = CheckAvailabilityStatus.DefaultSettingsLoad;
-            s_loadedProfile = LoadOrGetProfile();
-            if (s_loadedProfile == null)
+            if (!EWovaAuth.LoadProjectSettings(out string errorMsg))
             {
-                process.ClientErrorMessage = "找不到 Resources/EWova/LearningPortfolioProfile 必要專案設定，請確認資源存在路徑正確且 API Key 正確。";
-                return;
-            }
-            if (!s_loadedProfile.APISettings.IsValid(out string errorMessage))
-            {
-                process.ClientErrorMessage = $"檢測到學習歷程 Api key 不合規範: {errorMessage} 請檢查 LearningPortfolioProfile.asset";
+                process.ClientErrorMessage = $"讀取學習歷程專案設定失敗: {errorMsg}";
                 return;
             }
 
@@ -267,7 +258,7 @@ namespace EWova.LearningPortfolio
             }
 
             process.Status = CheckAvailabilityStatus.ApiCheckApiHealth;
-            var client = new LPApiClient(s_loadedProfile.APISettings, logger: ApiClientLogger);
+            var client = new LPApiClient(EWovaAuth, logger: ApiClientLogger);
             await InternalCheckAvailabilityAsync(process, client, ct);
 
             if (!process.IsSuccess)
@@ -311,18 +302,13 @@ namespace EWova.LearningPortfolio
                 return;
             }
 
-            s_loadedProfile = LoadOrGetProfile();
             process.Status = ConnectStatus.CheckAvailability_DefaultSettingsLoad;
-            if (s_loadedProfile == null)
+            if (!EWovaAuth.LoadProjectSettings(out string errorMsg))
             {
-                process.ClientErrorMessage = "找不到 Resources/EWova/LearningPortfolioProfile 必要專案設定，請確認資源存在路徑正確且 API Key 正確。";
+                process.ClientErrorMessage = $"讀取學習歷程專案設定失敗: {errorMsg}";
                 return;
             }
-            if (!s_loadedProfile.APISettings.IsValid(out string errorMessage))
-            {
-                process.ClientErrorMessage = $"檢測到學習歷程 Api key 不合規範: {errorMessage} 請檢查 LearningPortfolioProfile.asset";
-                return;
-            }
+
             process.Progress = 0.05f;
 
             if (!EWovaAuth.IsAuthenticated)
@@ -373,7 +359,7 @@ namespace EWova.LearningPortfolio
             }
             process.Progress = 0.2f;
 
-            var client = new LPApiClient(s_loadedProfile.APISettings, logger: ApiClientLogger);
+            var client = new LPApiClient(EWovaAuth, logger: ApiClientLogger);
             var pendingUserData = client.AuthenticatedUserProfile;
             var instance = new GameObject().AddComponent<LearningPortfolio>();
             instance.gameObject.name = $"{Name} ({pendingUserData.Nickname}) connecting...";
@@ -1347,22 +1333,5 @@ namespace EWova.LearningPortfolio
 
             plane.Footer.text = $"正在檢視 <color=#F80>{EWovaAuth.CurrentUser.Nickname}</color> 的學習資料！ 目前的學習完成度為 <color=#F80>{(int)(userProjectRecord.CompletionProgress * 100f)}%</color> ！";
         }
-        private static LearningPortfolioProfile LoadOrGetProfile()
-        {
-            if (s_loadedProfile != null)
-                return s_loadedProfile;
-
-            LearningPortfolioProfile loadedProfile = null;
-
-            if (s_loadedProfile == null)
-                loadedProfile = Resources.Load<LearningPortfolioProfile>("EWova/LearningPortfolioProfile");
-
-            if (loadedProfile == null)
-                return null;
-
-            s_loadedProfile = loadedProfile;
-            return s_loadedProfile;
-        }
-
     }
 }

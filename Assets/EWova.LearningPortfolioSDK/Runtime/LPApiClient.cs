@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 
+using UnityEngine;
+
 namespace EWova.LearningPortfolio
 {
     /// <summary>
@@ -32,20 +34,18 @@ namespace EWova.LearningPortfolio
             }
         }
 
-        /// <summary>
-        /// 儲存當前的 API 設定，供實例或擴充方法內部使用
-        /// </summary>
-        public ApiSettings CurrentAPISettings { get; private set; }
+        protected LearningPortfolioEWovaAuth CurrentAuth;
+        protected ProjectSettings CurrentProjectSettings;
 
-        public LPApiClient(ApiSettings apiSettings, Logger logger = null)
-            : this(apiSettings, LearningPortfolio.EWovaAuth, logger) { }
-        internal LPApiClient(ApiSettings apiSettings, IAuthManager authManager, Logger logger)
-            : base(authManager, LPServiceUrl, logger)
+        internal LPApiClient(LearningPortfolioEWovaAuth auth, Logger logger = null)
+            : base(auth, LPServiceUrl, logger)
         {
-            apiSettings.EnsureValid();
-            CurrentAPISettings = apiSettings;
+            if(auth.IsProjectSettingsValid == false)
+                throw new ArgumentException("Invalid ProjectSettings in LearningPortfolioEWovaAuth. Please ensure that the ProjectSettings are valid before creating an instance of LPApiClient.");
+
+            CurrentAuth = auth;
             // Set the API key in the headers for authentication
-            AdditionalHeaders["x-api-key"] = apiSettings.APIKey;
+            AdditionalHeaders["x-api-key"] = CurrentProjectSettings.APIKey;
         }
 
         protected override void CollectPackages(List<SdkPackageInfo> list)
