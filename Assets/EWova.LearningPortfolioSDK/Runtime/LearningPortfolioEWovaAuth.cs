@@ -16,7 +16,7 @@ namespace EWova.LearningPortfolio
         }), new Logger("[EWova]LPEWovaAuth ", LogLevel.Full))
         { }
 
-        public bool LoadProjectSettings(out string errorMessage)
+        public static bool TryLoadProjectSettings(out ProjectSettings? profile, out string errorMessage)
         {
             LearningPortfolioProfile loadedProfile = null;
 
@@ -26,19 +26,28 @@ namespace EWova.LearningPortfolio
             if (loadedProfile == null)
             {
                 errorMessage = "無法從 Resources 中載入 ProjectSettings，請確認 LearningPortfolioProfile 是否存在於 Resources 資料夾中，並且已正確設定。";
+                profile = null;
                 return false;
             }
             else if (!loadedProfile.ProjectSettings.IsValid(out string innerErrorMessage))
             {
                 errorMessage = $"載入的 ProjectSettings 不符合規範: {innerErrorMessage}";
+                profile = null;
                 return false;
             }
             else
             {
                 errorMessage = null;
-                CurrentProjectSettings = loadedProfile.ProjectSettings;
+                profile = loadedProfile.ProjectSettings;
                 return true;
             }
+        }
+
+        public bool LoadProjectSettings(out string errorMessage)
+        {
+            bool result = TryLoadProjectSettings(out var proSetting, out errorMessage);
+            CurrentProjectSettings = proSetting;
+            return result;
         }
 
         /// <summary>

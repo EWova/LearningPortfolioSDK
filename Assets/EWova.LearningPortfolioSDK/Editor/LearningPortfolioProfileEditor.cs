@@ -18,7 +18,7 @@ namespace EWova.LearningPortfolio.Editor
 
         private void OnEnable()
         {
-            m_stringApiKey = serializedObject.FindProperty("APISettings").FindPropertyRelative("APIKey");
+            m_stringApiKey = serializedObject.FindProperty("ProjectSettings").FindPropertyRelative("APIKey");
         }
         public override void OnInspectorGUI()
         {
@@ -48,7 +48,13 @@ namespace EWova.LearningPortfolio.Editor
                 m_isApiKeyValid = 0;
                 m_message = null;
 
-                var apiClient = new LPApiClient(new ProjectSettings(m_stringApiKey.stringValue), null, null);
+                if (!LearningPortfolioEWovaAuth.TryLoadProjectSettings(out var proSet, out string errorMessage))
+                {
+                    m_isApiKeyValid = 2;
+                    m_message = $"載入 ProjectSettings 失敗: {errorMessage}";
+                    return;
+                }
+                var apiClient = new LPApiClient(proSet.Value, null);
 
                 UniTask.Void(async () =>
                 {

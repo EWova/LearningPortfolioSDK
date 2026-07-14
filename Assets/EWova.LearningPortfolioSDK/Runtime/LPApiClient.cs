@@ -35,17 +35,21 @@ namespace EWova.LearningPortfolio
         }
 
         protected LearningPortfolioEWovaAuth CurrentAuth;
-        protected ProjectSettings CurrentProjectSettings;
 
+        internal LPApiClient(ProjectSettings projectSettings, Logger logger = null)
+            : base(null, LPServiceUrl, logger)
+        {
+            AdditionalHeaders["x-api-key"] = projectSettings.APIKey;
+        }
         internal LPApiClient(LearningPortfolioEWovaAuth auth, Logger logger = null)
             : base(auth, LPServiceUrl, logger)
         {
-            if(auth.IsProjectSettingsValid == false)
+            if (auth.IsProjectSettingsValid == false)
                 throw new ArgumentException("Invalid ProjectSettings in LearningPortfolioEWovaAuth. Please ensure that the ProjectSettings are valid before creating an instance of LPApiClient.");
 
             CurrentAuth = auth;
             // Set the API key in the headers for authentication
-            AdditionalHeaders["x-api-key"] = CurrentProjectSettings.APIKey;
+            AdditionalHeaders["x-api-key"] = auth.CurrentProjectSettings.Value.APIKey;
         }
 
         protected override void CollectPackages(List<SdkPackageInfo> list)
