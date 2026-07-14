@@ -1,13 +1,10 @@
 using Cysharp.Threading.Tasks;
 
-using EWova.Auth;
 using EWova.Networking;
 
 using System;
 using System.Collections.Generic;
 using System.Threading;
-
-using UnityEngine;
 
 namespace EWova.LearningPortfolio
 {
@@ -39,14 +36,20 @@ namespace EWova.LearningPortfolio
         internal LPApiClient(ProjectSettings projectSettings, Logger logger = null)
             : base(null, LPServiceUrl, logger)
         {
-            AdditionalHeaders["x-api-key"] = projectSettings.APIKey;
+            AdditionalHeaders["x-api-key"] = () => projectSettings.APIKey;
         }
         internal protected LPApiClient(LearningPortfolioEWovaAuth auth, Logger logger = null)
             : base(auth, LPServiceUrl, logger)
         {
             CurrentAuth = auth;
             // Set the API key in the headers for authentication
-            AdditionalHeaders["x-api-key"] = auth.CurrentProjectSettings.Value.APIKey;
+            AdditionalHeaders["x-api-key"] = () =>
+            {
+                if (auth == null || !auth.IsProjectSettingsValid)
+                    return null;
+
+                return auth.CurrentProjectSettings.Value.APIKey;
+            };
         }
 
         protected override void CollectPackages(List<SdkPackageInfo> list)

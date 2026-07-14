@@ -83,23 +83,56 @@ namespace EWova.LearningPortfolio
         /* https://api-learning-app.ewova.dev/api/docs */
 
         private const string LearningPortfolioUsedContentType = "application/json";
+
         // --- 核心 HTTP 方法封裝與 Token 轉發 ---
-        protected UniTask<string> Get(string endpoint, CancellationToken ct = default)
-            => base.Get(endpoint, ct: ct);
-        protected UniTask<T> Get<T>(string endpoint, CancellationToken ct = default)
-            => base.Get<T>(endpoint, ct: ct);
-        protected UniTask<string> Post(string endpoint, object jsonBody, CancellationToken ct = default)
-            => base.Post(endpoint, jsonBody, contentType: LearningPortfolioUsedContentType, ct: ct);
-        protected UniTask<T> Post<T>(string endpoint, object jsonBody, CancellationToken ct = default)
-            => base.Post<T>(endpoint, jsonBody, contentType: LearningPortfolioUsedContentType, ct: ct);
-        protected UniTask<string> Put(string endpoint, object jsonBody, CancellationToken ct = default)
-            => base.Put(endpoint, jsonBody, contentType: LearningPortfolioUsedContentType, ct: ct);
-        protected UniTask<T> Put<T>(string endpoint, object jsonBody, CancellationToken ct = default)
-            => base.Put<T>(endpoint, jsonBody, contentType: LearningPortfolioUsedContentType, ct: ct);
-        protected UniTask<string> Delete(string endpoint, CancellationToken ct = default)
-            => base.Delete(endpoint, ct: ct);
-        protected UniTask<T> Delete<T>(string endpoint, CancellationToken ct = default)
-            => base.Delete<T>(endpoint, ct: ct);
+        internal UniTask<string> Get(string endpoint, CancellationToken ct = default)
+            => Send<string>(RequestTask.GET(
+                backendUrlOrAbsoluteUrl: endpoint,
+                throwApiExceptionFor4xxResponses: true,
+                ct: ct));
+        internal UniTask<T> Get<T>(string endpoint, CancellationToken ct = default)
+            => Send<T>(RequestTask.GET(
+                backendUrlOrAbsoluteUrl: endpoint,
+                throwApiExceptionFor4xxResponses: true,
+                ct: ct));
+        internal UniTask<string> Post(string endpoint, object jsonBody, CancellationToken ct = default)
+            => Send<string>(RequestTask.POST(
+                backendUrlOrAbsoluteUrl: endpoint,
+                body: jsonBody,
+                contentType: LearningPortfolioUsedContentType,
+                throwApiExceptionFor4xxResponses: true,
+                ct: ct));
+        internal UniTask<T> Post<T>(string endpoint, object jsonBody, CancellationToken ct = default)
+            => Send<T>(RequestTask.POST(
+                backendUrlOrAbsoluteUrl: endpoint,
+                body: jsonBody,
+                contentType: LearningPortfolioUsedContentType,
+                throwApiExceptionFor4xxResponses: true,
+                ct: ct));
+        internal UniTask<string> Put(string endpoint, object jsonBody, CancellationToken ct = default)
+            => Send<string>(RequestTask.PUT(
+                backendUrlOrAbsoluteUrl: endpoint,
+                body: jsonBody,
+                contentType: LearningPortfolioUsedContentType,
+                throwApiExceptionFor4xxResponses: true,
+                ct: ct));
+        internal UniTask<T> Put<T>(string endpoint, object jsonBody, CancellationToken ct = default)
+            => Send<T>(RequestTask.PUT(
+                backendUrlOrAbsoluteUrl: endpoint,
+                body: jsonBody,
+                contentType: LearningPortfolioUsedContentType,
+                throwApiExceptionFor4xxResponses: true,
+                ct: ct));
+        internal UniTask<string> Delete(string endpoint, CancellationToken ct = default)
+            => Send<string>(RequestTask.DELETE(
+                backendUrlOrAbsoluteUrl: endpoint,
+                throwApiExceptionFor4xxResponses: true,
+                ct: ct));
+        internal UniTask<T> Delete<T>(string endpoint, CancellationToken ct = default)
+            => Send<T>(RequestTask.DELETE(
+                backendUrlOrAbsoluteUrl: endpoint,
+                throwApiExceptionFor4xxResponses: true,
+                ct: ct));
 
         /// <summary>
         /// 取得 2D 紋理（支援取消權杖機制）
