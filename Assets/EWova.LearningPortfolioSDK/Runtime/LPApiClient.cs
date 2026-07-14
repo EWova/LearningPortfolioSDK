@@ -36,12 +36,12 @@ namespace EWova.LearningPortfolio
 
         protected LearningPortfolioEWovaAuth CurrentAuth;
 
-        internal LPApiClient(ProjectSettings projectSettings, Logger logger = null)
+        internal protected LPApiClient(ProjectSettings projectSettings, Logger logger = null)
             : base(null, LPServiceUrl, logger)
         {
             AdditionalHeaders["x-api-key"] = projectSettings.APIKey;
         }
-        internal LPApiClient(LearningPortfolioEWovaAuth auth, Logger logger = null)
+        internal protected LPApiClient(LearningPortfolioEWovaAuth auth, Logger logger = null)
             : base(auth, LPServiceUrl, logger)
         {
             if (auth.IsProjectSettingsValid == false)
