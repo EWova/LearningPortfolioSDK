@@ -1,5 +1,3 @@
-using System;
-
 using TMPro;
 
 using UnityEngine;
@@ -20,6 +18,7 @@ namespace EWova.LearningPortfolio
 
         [Header("NotSupportLogin")]
         public GameObject NotSupportLoginRoot;
+        //TODO 未來可以讓使用者輸入 LaunchTicket 來登入，避免 DeepLink 失效或不支援問題。待確認需求後再開發。
         public TMP_InputField NotSupportLoginLaunchTicketInputField;
 
         [Header("Connect")]
@@ -65,6 +64,11 @@ namespace EWova.LearningPortfolio
 
         private void Awake()
         {
+            DeepLink.DeepLinkHandler.Default.ContinueWith((link) =>
+            {
+                Debug.LogError($"({link.ActiveInvocationType}) <color=#FF0>{link.ActiveURL}</color>");
+            });
+
             LoginInfoChangeUserButton.BindingState(
                 LoginInfoChangeUserButtonChildText
                 , SecondaryNormalColor
@@ -106,7 +110,6 @@ namespace EWova.LearningPortfolio
 
             LoginRedirectPCIssueTipText.SetActive(false);
         }
-
         private void Update()
         {
             if (LoginRedirectRoot.activeSelf)

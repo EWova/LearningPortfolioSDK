@@ -48,7 +48,7 @@ namespace EWova.LearningPortfolio.Editor
                 m_isApiKeyValid = 0;
                 m_message = null;
 
-                if (!LearningPortfolioEWovaAuth.TryLoadProjectSettings(out var proSet, out string errorMessage))
+                if (!LearningPortfolio.TryLoadProjectSettings(out var proSet, out string errorMessage))
                 {
                     m_isApiKeyValid = 2;
                     m_message = $"載入 ProjectSettings 失敗: {errorMessage}";

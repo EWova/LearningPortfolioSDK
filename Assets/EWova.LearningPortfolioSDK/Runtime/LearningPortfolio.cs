@@ -60,7 +60,13 @@ namespace EWova.LearningPortfolio
             OnUserLogout = null;
             OnUserProjectRecordUpdated = null;
             ConnectBlocker.Clear();
+            CurrentProjectSettings = null;
             EWovaAuth = new LearningPortfolioEWovaAuth();
+
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.playModeStateChanged -= PlayModeStateChanged;
+            UnityEditor.EditorApplication.playModeStateChanged += PlayModeStateChanged;
+#endif
         }
 
         public static readonly string Name = "[EWova]LearningPortfolio";
@@ -102,11 +108,6 @@ namespace EWova.LearningPortfolio
 
                 s_instance = value;
                 DontDestroyOnLoad(s_instance.gameObject);
-
-#if UNITY_EDITOR
-                UnityEditor.EditorApplication.playModeStateChanged -= PlayModeStateChanged;
-                UnityEditor.EditorApplication.playModeStateChanged += PlayModeStateChanged;
-#endif
             }
         }
 
@@ -115,14 +116,29 @@ namespace EWova.LearningPortfolio
         {
             if (mode == UnityEditor.PlayModeStateChange.EnteredEditMode)
             {
-                if (s_instance == null)
-                    return;
-
-                DestroyImmediate(s_instance);
-                s_instance = null;
+                if (s_instance != null)
+                {
+                    DestroyImmediate(s_instance);
+                    s_instance = null;
+                }
+                if (EWovaAuth != null)
+                {
+                    EWovaAuth.Dispose();
+                    EWovaAuth = null;
+                }
             }
         }
 #endif
+
+        /// <summary>
+        /// 儲存當前的 API 設定，供實例或擴充方法內部使用
+        /// </summary>
+        public static ProjectSettings? CurrentProjectSettings;
+
+        /// <summary>
+        /// 檢查當前的 API 設定是否有效，若無效則無法進行 API 請求
+        /// </summary>
+        public static bool IsProjectSettingsValid => CurrentProjectSettings?.IsValid(out _) ?? false;
 
         private LPApiClient m_apiClient;
         [SerializeField] private UserData m_loginUserData;
@@ -140,6 +156,10 @@ namespace EWova.LearningPortfolio
         public static bool IsHasUserProjectRecord => IsConnected && Instance.m_currentUserProjectSheet != null;
         public static bool IsUpdatingUserProjectRecord => IsConnected && Instance.m_isUpdatingUserSheet;
         public static UserData LoginUserData => IsConnected ? Instance.m_loginUserData : null;
+        /// <summary>
+        /// 當前專案資訊
+        /// </summary>
+        public static Api.Project ConnectedProject => IsConnected ? Instance.m_connectedProject : null;
         /// <summary>
         /// 登入中的使用者專案紀錄表
         /// </summary>
@@ -237,7 +257,7 @@ namespace EWova.LearningPortfolio
             ct.ThrowIfCancellationRequested();
 
             process.Status = CheckAvailabilityStatus.DefaultSettingsLoad;
-            if (!EWovaAuth.LoadProjectSettings(out string errorMsg))
+            if (!LoadProjectSettings(out string errorMsg))
             {
                 process.ClientErrorMessage = $"讀取學習歷程專案設定失敗: {errorMsg}";
                 return;
@@ -303,7 +323,7 @@ namespace EWova.LearningPortfolio
             }
 
             process.Status = ConnectStatus.CheckAvailability_DefaultSettingsLoad;
-            if (!EWovaAuth.LoadProjectSettings(out string errorMsg))
+            if (!LoadProjectSettings(out string errorMsg))
             {
                 process.ClientErrorMessage = $"讀取學習歷程專案設定失敗: {errorMsg}";
                 return;
@@ -1332,6 +1352,44 @@ namespace EWova.LearningPortfolio
             }
 
             plane.Footer.text = $"正在檢視 <color=#F80>{EWovaAuth.CurrentUser.Nickname}</color> 的學習資料！ 目前的學習完成度為 <color=#F80>{(int)(userProjectRecord.CompletionProgress * 100f)}%</color> ！";
+        }
+
+        public static bool TryLoadProjectSettings(out ProjectSettings? profile, out string errorMessage)
+        {
+            LearningPortfolioProfile loadedProfile = null;
+
+            if (loadedProfile == null)
+                loadedProfile = Resources.Load<LearningPortfolioProfile>("EWova/LearningPortfolioProfile");
+
+            if (loadedProfile == null)
+            {
+                errorMessage = "無法從 Resources 中載入 ProjectSettings，請確認 LearningPortfolioProfile 是否存在於 Resources 資料夾中，並且已正確設定。";
+                profile = null;
+                return false;
+            }
+            else if (!loadedProfile.ProjectSettings.IsValid(out string innerErrorMessage))
+            {
+                errorMessage = $"載入的 ProjectSettings 不符合規範: {innerErrorMessage}";
+                profile = null;
+                return false;
+            }
+            else
+            {
+                errorMessage = null;
+                profile = loadedProfile.ProjectSettings;
+                return true;
+            }
+        }
+
+        public static bool LoadProjectSettings(out string errorMessage)
+        {
+            bool result = TryLoadProjectSettings(out var proSetting, out errorMessage);
+            if (result)
+            {
+                CurrentProjectSettings = proSetting;
+                EWovaAuth.ApiKey = CurrentProjectSettings.Value.APIKey;
+            }
+            return result;
         }
     }
 }

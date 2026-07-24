@@ -45,10 +45,7 @@ namespace EWova.LearningPortfolio
             // Set the API key in the headers for authentication
             AdditionalHeaders["x-api-key"] = () =>
             {
-                if (auth == null || !auth.IsProjectSettingsValid)
-                    return null;
-
-                return auth.CurrentProjectSettings.Value.APIKey;
+                return auth?.ApiKey;
             };
         }
 

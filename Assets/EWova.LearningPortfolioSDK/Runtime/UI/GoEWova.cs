@@ -12,12 +12,12 @@ namespace EWova.LearningPortfolio
             {
                 if (Application.isEditor)
                 {
-                    string link = EWovaApp.GetDeepLink(LaunchViaDeepLinkOption.Default);
+                    string link = EWovaApp.GetDeepLink(EWovaDeepLinkLaunchOption.Default);
                     UnityEngine.Debug.Log($"已點擊開啟 ({link})。 ( Editor 印出測試訊息，不觸發 Application.OpenURL )");
                 }
                 else
                 {
-                    EWovaApp.LaunchViaDeepLink(LaunchViaDeepLinkOption.Default);
+                    EWovaApp.LaunchViaDeepLink(EWovaDeepLinkLaunchOption.Default);
                 }
             });
         }
