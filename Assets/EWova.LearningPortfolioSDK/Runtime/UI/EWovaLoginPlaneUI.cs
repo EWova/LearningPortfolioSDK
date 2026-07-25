@@ -64,11 +64,6 @@ namespace EWova.LearningPortfolio
 
         private void Awake()
         {
-            DeepLink.DeepLinkHandler.Default.ContinueWith((link) =>
-            {
-                Debug.LogError($"({link.ActiveInvocationType}) <color=#FF0>{link.ActiveURL}</color>");
-            });
-
             LoginInfoChangeUserButton.BindingState(
                 LoginInfoChangeUserButtonChildText
                 , SecondaryNormalColor
