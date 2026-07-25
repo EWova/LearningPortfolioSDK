@@ -30,7 +30,7 @@ namespace EWova.LearningPortfolio.Editor
         [MenuItem("EWova/Editor/Learning Portfolio/Welcome Window", false, 0)]
         public static void ShowWindow()
         {
-            WelcomeWindow window = GetWindow<WelcomeWindow>(true, "Welcome", true);
+            WelcomeWindow window = GetWindow<WelcomeWindow>(true, $"EWova LearningPortfolio SDK - {PackageInfo.Version}", true);
             window.minSize = new Vector2(380, 440);
             window.Show();
         }
