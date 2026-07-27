@@ -1,9 +1,6 @@
 using UnityEngine;
 
 using EWova.LearningPortfolio;
-using System.Linq;
-using System;
-using System.Collections.Generic;
 
 public class Template : MonoBehaviour
 {
@@ -12,44 +9,42 @@ public class Template : MonoBehaviour
 
     private void Awake()
     {
-        // 你可以在這裡設定 EWova 的 Debug 等級，如果想要看到完整的除錯訊息，可以調整等級到 EWova.Debug.Level.Full
-        LearningPortfolio.Debug.PrintLevel = EWova.Debug.Level.Error;
+        // 如果需要更完整的除錯資訊，可以將 Logger 的 PrintLevel 設定為 Full，這樣會輸出更多的日誌細節，有助於開發和除錯。
+        LearningPortfolio.LoggerLevel = EWova.LogLevel.Full;
     }
 
-    public void Start()
+    public void OnEnable()
     {
-        // 使用紀錄寫入裝置為 Unknown
-        LearningPortfolio.UsingDeviceList UsingDevice = LearningPortfolio.UsingDeviceList.Unknown;
-#if UNITY_EDITOR
-        // 在 Unity 編輯器中使用 DeviceList.Editor 
-        UsingDevice = LearningPortfolio.UsingDeviceList.Editor;
-#endif
-
-        // 當遊戲開始邏輯觸發 例如:登入後開始、跳過開始
         loginPlane.OnGameStart.AddListener(OnStart);
 
-        // 你可以這樣子清除記憶資料
-        //loginPlane.ClearAllSavedData();
+        LearningPortfolio.OnUserLogin += HandleUserLogin;
+        LearningPortfolio.OnUserLogout += HandleUserLogout;
+        LearningPortfolio.OnUserProjectRecordUpdated += HandleUserProjectRecordUpdated;
+    }
 
-        // 當然 你可以不透過UI介面登入，而是直接使用程式碼登入
-        //loginPlane.Login("帳號", "密碼");
+    public void OnDisable()
+    {
+        loginPlane.OnGameStart.RemoveListener(OnStart);
 
-        // 提供了一些事件
-        LearningPortfolio.OnUserLogin += (userData) =>
-        {
-            Debug.Log($"使用者登入 {userData}");
-        };
-        LearningPortfolio.OnUserLogout += () =>
-        {
-            Debug.Log("使用者登出");
-        };
-        LearningPortfolio.OnUserProjectRecordUpdated += (sheet) =>
-        {
-            // 請注意，若你有登入登出更改使用者，這個是檢表單可能是為不同使用者表單
-            // 可以透過 sheet.Owner 來確認是誰的資料
-            Debug.Log($"使用者資料更新 {sheet}, 使用者: {sheet.Owner}");
-        };
+        LearningPortfolio.OnUserLogin -= HandleUserLogin;
+        LearningPortfolio.OnUserLogout -= HandleUserLogout;
+        LearningPortfolio.OnUserProjectRecordUpdated -= HandleUserProjectRecordUpdated;
+    }
 
+
+    private void HandleUserLogin(LearningPortfolio.UserData userData)
+    {
+        Debug.Log($"使用者登入 {userData}");
+    }
+
+    private void HandleUserLogout()
+    {
+        Debug.Log("使用者登出");
+    }
+
+    private void HandleUserProjectRecordUpdated(LearningPortfolio.UserProjectRecordSheet sheet)
+    {
+        Debug.Log($"使用者資料更新 {sheet}, 使用者: {sheet.Owner}");
     }
 
     // 這裡是遊戲開始的邏輯

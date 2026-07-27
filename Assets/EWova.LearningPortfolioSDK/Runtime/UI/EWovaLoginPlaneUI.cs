@@ -1,5 +1,3 @@
-using System;
-
 using TMPro;
 
 using UnityEngine;
@@ -18,23 +16,33 @@ namespace EWova.LearningPortfolio
         public BinderButton LoginInfoChangeUserButton;
         public TextMeshProUGUI LoginInfoChangeUserButtonChildText;
 
+        [Header("NotSupportLogin")]
+        public GameObject NotSupportLoginRoot;
+        //TODO 未來可以讓使用者輸入 LaunchTicket 來登入，避免 DeepLink 失效或不支援問題。待確認需求後再開發。
+        public TMP_InputField NotSupportLoginLaunchTicketInputField;
+
         [Header("Connect")]
-        public Button ConnectButton;
+        public Button ReconnectButton;
+        public Button ConnectingButton;
 
         [Header("Login")]
         public GameObject LoginRoot;
-        public TMP_InputField LoginAccountInput;
-        public TMP_InputField LoginPasswordInput;
         public TextMeshProUGUI LoginStateText;
-        public Toggle LoginPasswordInputShow;
-        public Sprite LoginPasswordInputShowOnNormalImage;
-        public Sprite LoginPasswordInputShowOnHighlightedImage;
-        public Sprite LoginPasswordInputShowOffNormalImage;
-        public Sprite LoginPasswordInputShowOffHighlightedImage;
         public Button LoginButton;
         public BinderButton LoginSkipButton;
         public TextMeshProUGUI LoginSkipButtonChildText;
         public Image LoginSkipButtonChildImage;
+
+        [Header("Login Redirect")]
+        public GameObject LoginRedirectRoot;
+        public Transform LoginRedirectIconRotate;
+        public BinderButton CancelLoginButton;
+        public GameObject LoginRedirectPCIssueTipText;
+
+        [Header("Getting User Data")]
+        public GameObject GettingUserDataRoot;
+        public TextMeshProUGUI GettingUserDataStateText;
+        public Button CancelGettingUserDataButton;
 
         [Header("Check Account")]
         public GameObject CheckAccountRoot;
@@ -56,24 +64,6 @@ namespace EWova.LearningPortfolio
 
         private void Awake()
         {
-            LoginAccountInput.onSelect.AddListener((text) =>
-            {
-                FocusInputField = LoginAccountInput;
-            });
-            LoginPasswordInput.onSelect.AddListener((text) =>
-            {
-                FocusInputField = LoginPasswordInput;
-            });
-
-            LoginAccountInput.onSubmit.AddListener((text) =>
-            {
-                LoginPasswordInput.Select();
-            });
-            LoginPasswordInput.onSubmit.AddListener((text) =>
-            {
-                LoginButton.onClick.Invoke();
-            });
-
             LoginInfoChangeUserButton.BindingState(
                 LoginInfoChangeUserButtonChildText
                 , SecondaryNormalColor
@@ -97,6 +87,14 @@ namespace EWova.LearningPortfolio
                 , SecondaryNormalColor
                 , SecondaryDisabledColor);
 
+            CancelLoginButton.BindingState(
+                CancelLoginButton.GetComponentInChildren<TextMeshProUGUI>()
+                , SecondaryNormalColor
+                , SecondaryHighlightedColor
+                , SecondaryHighlightedColor
+                , SecondaryNormalColor
+                , SecondaryDisabledColor);
+
             CheckAccountViewLearningPortfolioButton.BindingState(
                 CheckAccountViewLearningPortfolioButtonChildText
                 , SecondaryNormalColor
@@ -105,31 +103,15 @@ namespace EWova.LearningPortfolio
                 , SecondaryNormalColor
                 , SecondaryDisabledColor);
 
-            LoginPasswordInputShow.onValueChanged.AddListener((enabled) =>
-            {
-                var temp = LoginPasswordInputShow.spriteState;
-                if (enabled)
-                {
-                    LoginPasswordInputShow.image.sprite = LoginPasswordInputShowOffNormalImage;
-                    temp.selectedSprite = LoginPasswordInputShowOffNormalImage;
-                    temp.disabledSprite = LoginPasswordInputShowOffNormalImage;
-
-                    temp.highlightedSprite = LoginPasswordInputShowOffHighlightedImage;
-                    temp.pressedSprite = LoginPasswordInputShowOffHighlightedImage;
-                }
-                else
-                {
-                    LoginPasswordInputShow.image.sprite = LoginPasswordInputShowOnNormalImage;
-                    temp.selectedSprite = LoginPasswordInputShowOnNormalImage;
-                    temp.disabledSprite = LoginPasswordInputShowOnNormalImage;
-
-                    temp.highlightedSprite = LoginPasswordInputShowOnHighlightedImage;
-                    temp.pressedSprite = LoginPasswordInputShowOnHighlightedImage;
-                }
-                LoginPasswordInputShow.spriteState = temp;
-            });
+            LoginRedirectPCIssueTipText.SetActive(false);
         }
-
+        private void Update()
+        {
+            if (LoginRedirectRoot.activeSelf)
+            {
+                LoginRedirectIconRotate.Rotate(0f, 0f, -120f * Time.deltaTime);
+            }
+        }
         private void OnEnable()
         {
             VirtualKeyboard.OnTextKeyPress += InputText;
@@ -141,15 +123,6 @@ namespace EWova.LearningPortfolio
             VirtualKeyboard.OnTextKeyPress -= InputText;
             VirtualKeyboard.OnKeySubmit -= InputSubmit;
             VirtualKeyboard.OnKeyBackspace -= InputBackspace;
-        }
-
-        public void SetLoginStateTextWithException(Exception ex)
-        {
-            if (LoginStateText.IsDestroyed())
-                return;
-
-            UnityEngine.Debug.LogException(ex);
-            SetLoginStateText(ex.Message, LogType.Error);
         }
 
         public void SetLoginStateText(string text, LogType logType = LogType.Log)

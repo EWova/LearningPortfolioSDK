@@ -1,7 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace EWova.LearningPortfolio {
+namespace EWova.LearningPortfolio
+{
     public class GoEWova : MonoBehaviour
     {
         public Button Button;
@@ -11,11 +12,12 @@ namespace EWova.LearningPortfolio {
             {
                 if (Application.isEditor)
                 {
-                    UnityEngine.Debug.Log($"已點擊開啟 EWova ({EWova.GetDeepLink()})。 Editor 中不會真的打開，僅測試用。");
+                    string link = EWovaApp.GetDeepLink(EWovaDeepLinkLaunchOption.Default);
+                    UnityEngine.Debug.Log($"已點擊開啟 ({link})。 ( Editor 印出測試訊息，不觸發 Application.OpenURL )");
                 }
                 else
                 {
-                    EWova.LaunchApp();
+                    EWovaApp.LaunchViaDeepLink(EWovaDeepLinkLaunchOption.Default);
                 }
             });
         }

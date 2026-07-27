@@ -1,12 +1,12 @@
 using UnityEngine;
-
-using static EWova.LearningPortfolio.LearningPortfolio;
+using UnityEngine.Serialization;
 
 namespace EWova.LearningPortfolio
 {
     [CreateAssetMenu(fileName = "LearningPortfolioProfile", menuName = "EWova/LearningPortfolio/Profile")]
     public class LearningPortfolioProfile : ScriptableObject
     {
-        public APISettings APISettings;
+        [FormerlySerializedAs("APISettings")]
+        public ProjectSettings ProjectSettings;
     }
 }

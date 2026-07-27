@@ -23,7 +23,7 @@ public class PlayerDataUploader : MonoBehaviour
     }
     private void Update()
     {
-        if (!LearningPortfolio.IsLoggedIn)
+        if (!LearningPortfolio.IsConnected)
             return;
         var sheet = LearningPortfolio.LoggedUserProjectRecordSheet;
 
@@ -53,7 +53,7 @@ public class PlayerDataUploader : MonoBehaviour
     /// <param name="page">分頁</param>
     public void ClearPageData(int page)
     {
-        if (!LearningPortfolio.IsLoggedIn)
+        if (!LearningPortfolio.IsConnected)
             return;
 
         var sheet = LearningPortfolio.LoggedUserProjectRecordSheet;
@@ -86,7 +86,7 @@ public class PlayerDataUploader : MonoBehaviour
     /// <param name="value">此欄位要累加的值</param>
     public void AddValueToCell(int page, int column, int row, int value)
     {
-        if (!LearningPortfolio.IsLoggedIn)
+        if (!LearningPortfolio.IsConnected)
             return;
 
         var sheet = LearningPortfolio.LoggedUserProjectRecordSheet;
@@ -102,7 +102,7 @@ public class PlayerDataUploader : MonoBehaviour
         pageTargetRowCellsLabel[column] = (originValue + value).ToString(); //累加 
         pageTargetRow.SetCells.Request
         (
-            new API.SetRowRequest()
+            new Api.SetRowRequest()
             {
                 Cells = pageTargetRowCellsLabel
             },
@@ -130,7 +130,7 @@ public class PlayerDataUploader : MonoBehaviour
     /// <param name="data">玩家完成的單元整列資料</param>
     public void WriteUnitRowData(int page, string[] data)
     {
-        if (!LearningPortfolio.IsLoggedIn)
+        if (!LearningPortfolio.IsConnected)
             return;
 
         var Sheet = LearningPortfolio.LoggedUserProjectRecordSheet;
@@ -141,7 +141,7 @@ public class PlayerDataUploader : MonoBehaviour
         //新增列
         Page.AddRowAndSetCells.Request
         (
-            value: new API.SetRowRequest()
+            value: new Api.SetRowRequest()
             {
                 Cells = data
             },
@@ -159,7 +159,7 @@ public class PlayerDataUploader : MonoBehaviour
     [ContextMenu("[ 05範例_教材完成進度更新 ]")]
     public void ExampleUpdateCourseProgress()
     {
-        if (!LearningPortfolio.IsLoggedIn)
+        if (!LearningPortfolio.IsConnected)
             return;
 
         var Sheet = LearningPortfolio.LoggedUserProjectRecordSheet;
@@ -180,7 +180,7 @@ public class PlayerDataUploader : MonoBehaviour
     [ContextMenu("[ 06範例_移除教材完成進度更新 ]")]
     public void ExampleResetCourseProgress()
     {
-        if (!LearningPortfolio.IsLoggedIn)
+        if (!LearningPortfolio.IsConnected)
             return;
 
         var Sheet = LearningPortfolio.LoggedUserProjectRecordSheet;

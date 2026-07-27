@@ -20,7 +20,7 @@ public class YourGame : MonoBehaviour
     private void Awake()
     {
         // 從 Template.cs 邏輯來到接續的此 YourGame.cs 腳本
-        if (LearningPortfolio.IsLoggedIn)
+        if (LearningPortfolio.IsConnected)
         {
             LoginOrg.text = LearningPortfolio.LoginUserData.OrgName;
             LoginName.text = LearningPortfolio.LoginUserData.Name;
@@ -48,7 +48,7 @@ public class YourGame : MonoBehaviour
     public void 修改寫入資料範例()
     {
         // 沒連線 沒登入 不可寫入！
-        if (!LearningPortfolio.IsLoggedIn)
+        if (!LearningPortfolio.IsConnected)
             return;
 
         /* --------------  Sheet = 使用者紀錄  -------------------------------------------------------*/
@@ -199,7 +199,7 @@ public class YourGame : MonoBehaviour
         // 如果你想新增一列資料到該頁 {目標頁}
         targetPage.AddRowAndSetCells.Request
         (
-            value: new API.SetRowRequest()
+            value: new Api.SetRowRequest()
             {
                 Cells = new string[] { "70", "NewV", "66", "101", "123" }
             },
@@ -211,8 +211,8 @@ public class YourGame : MonoBehaviour
         // 非同步寫法
         UniTask.Void(async () =>
         {
-            NetServiceAsyncRespond<API.AddRowResponse> result =
-                await targetPage.AddRowAndSetCells.RequestAsync(new API.SetRowRequest()
+            NetServiceAsyncRespond<Api.AddRowResponse> result =
+                await targetPage.AddRowAndSetCells.RequestAsync(new Api.SetRowRequest()
                 {
                     Cells = new string[] { "70", "NewV", "66", "101", "123" }
                 });

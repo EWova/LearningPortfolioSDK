@@ -12,154 +12,181 @@
 
 using Cysharp.Threading.Tasks;
 
-using EWova.NetService;
-using EWova.NetService.Model;
+using EWova.Auth;
+using EWova.Networking;
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 using UnityEngine;
 
 namespace EWova.LearningPortfolio
 {
+    [Serializable]
+    public struct ProjectSettings
+    {
+        public ProjectSettings(string apiKey)
+        {
+            APIKey = apiKey;
+        }
+        public string APIKey;
+
+        public readonly void EnsureValid()
+        {
+            if (!IsValid(out string msg))
+                throw new ArgumentException(msg, nameof(APIKey));
+        }
+        public readonly bool IsValid(out string errorMessage)
+        {
+            if (string.IsNullOrEmpty(APIKey))
+            {
+                errorMessage = "API Key cannot be null or empty.";
+                return false;
+            }
+            errorMessage = null;
+            return true;
+        }
+    }
+
     public partial class LearningPortfolio : MonoBehaviour
     {
         [RuntimeInitializeOnLoadMethod(loadType: RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         public static void Init()
         {
+            s_instance = null;
             OnUserLogin = null;
             OnUserLogout = null;
             OnUserProjectRecordUpdated = null;
-        }
-
-        [Serializable]
-        public struct APISettings
-        {
-            public string ServiceUrl;
-            public string APIKey;
-        }
-
-        public static readonly Debug Debug = new(Name, Debug.Level.Error | Debug.Level.Warn);
-        public static readonly string Name = $"[EWova] {nameof(LearningPortfolio)} ";
-        private static LearningPortfolio Instance;
-        public static bool IsLogException = true;
-        public static void ConnectWithDefaultProfile(Action<LearningPortfolio> onSuccess, Action<Exception> onError = null)
-        {
-            if (Instance != null)
-            {
-                OnError(new Exception("連線失敗，已有 LearningPortfolio 已連線完成，請呼叫 LearningPortfolio.Instance。"), onError);
-                return;
-            }
-
-            LearningPortfolioProfile profile = Resources.Load<LearningPortfolioProfile>("EWova/LearningPortfolioProfile");
-            if (profile == null)
-            {
-                OnError(new("未找到 Create LearningPortfolioProfile，請在 Resources 資料夾下建立 Create Profile"), onError);
-                return;
-            }
-
-            Connect(profile, onSuccess, onError);
-        }
-        public static void Connect(LearningPortfolioProfile profile, Action<LearningPortfolio> onSuccess, Action<Exception> onError = null)
-        {
-            if (Instance != null)
-            {
-                OnError(new Exception("連線失敗，已有 LearningPortfolio 已連線完成，請呼叫 LearningPortfolio.Instance。"), onError);
-                return;
-            }
-
-            if (profile == null)
-            {
-                OnError(new("Profile 不可為空"), onError);
-                return;
-            }
-
-            Connect(profile.APISettings, onSuccess, onError);
-        }
-        public static void Connect(APISettings settings, Action<LearningPortfolio> onSuccess, Action<Exception> onError = null)
-        {
-            if (Instance != null)
-            {
-                OnError(new Exception("連線失敗，已有 LearningPortfolio 已連線完成，請呼叫 LearningPortfolio.Instance。"), onError);
-                return;
-            }
-
-            GetApiKeyValidInfo(
-                settings.ServiceUrl
-                , settings.APIKey
-                , onSuccess: (valid) =>
-                {
-                    if (!valid.IsValid)
-                    {
-                        OnError(new($"連線失敗，詳細資訊:{valid.ErrorMessage}"), onError);
-                        return;
-                    }
-
-                    GetProject(
-                            settings.ServiceUrl
-                            , settings.APIKey
-                            , projectId: valid.ProjectId
-                            , onSuccess: (project) =>
-                            {
-                                Instance = CreateInstance();
-                                ConnectingProject = project;
-                                CurrentAPISettings = settings;
-                                Debug.Log("成功連上專案學習歷程");
-                                onSuccess?.Invoke(Instance);
-                            }, onError: (msg) =>
-                            {
-                                OnError(new($"連線失敗，詳細資訊 {msg.Message}"), onError);
-                            });
-                },
-                onError: (ex) =>
-                {
-                    OnError(new("連線失敗，請檢查 API 金鑰是否正確"), onError);
-                }
-            );
-        }
-        private static LearningPortfolio CreateInstance()
-        {
-            GameObject gameObject = new(Name, typeof(LearningPortfolio));
-            var instance = gameObject.GetComponent<LearningPortfolio>();
-            DontDestroyOnLoad(gameObject);
+            ConnectBlocker.Clear();
+            CurrentProjectSettings = null;
+            EWovaAuth = new LearningPortfolioEWovaAuth();
 
 #if UNITY_EDITOR
-            void PlayModeStateChanged(UnityEditor.PlayModeStateChange mode)
-            {
-                if (mode == UnityEditor.PlayModeStateChange.EnteredEditMode)
-                {
-
-                    UnityEditor.EditorApplication.playModeStateChanged -= PlayModeStateChanged;
-                    DestroyImmediate(instance);
-                    instance = null;
-                }
-            }
+            UnityEditor.EditorApplication.playModeStateChanged -= PlayModeStateChanged;
             UnityEditor.EditorApplication.playModeStateChanged += PlayModeStateChanged;
 #endif
-            return instance;
         }
 
+        public static readonly string Name = "[EWova]LearningPortfolio";
+        public static LearningPortfolioEWovaAuth EWovaAuth { get; private set; }
+
+        private static readonly Logger Logger = new(Name + ' ', LogLevel.Full);
+        private static readonly Logger ApiClientLogger = new(Name + "-ApiClient ", LogLevel.Warn | LogLevel.Error);
+        /// <summary>
+        /// 學習歷程用的日誌等級
+        /// </summary>
+        public static LogLevel LoggerLevel
+        {
+            get => Logger.PrintLevel;
+            set => Logger.PrintLevel = value;
+        }
+        /// <summary>
+        /// 學習歷程 API 請求相關的日誌等級
+        /// </summary>
+        public static LogLevel ApiClientLoggerLevel
+        {
+            get => ApiClientLogger.PrintLevel;
+            set => ApiClientLogger.PrintLevel = value;
+        }
+
+        private static LearningPortfolio s_instance;
+        private static LearningPortfolio Instance
+        {
+            get => s_instance;
+            set
+            {
+                if (value == null)
+                {
+                    s_instance = null;
+                    return;
+                }
+
+                if (s_instance != null)
+                    return;
+
+                s_instance = value;
+                DontDestroyOnLoad(s_instance.gameObject);
+            }
+        }
+
+#if UNITY_EDITOR
+        private static void PlayModeStateChanged(UnityEditor.PlayModeStateChange mode)
+        {
+            if (mode == UnityEditor.PlayModeStateChange.EnteredEditMode)
+            {
+                if (s_instance != null)
+                {
+                    DestroyImmediate(s_instance);
+                    s_instance = null;
+                }
+                if (EWovaAuth != null)
+                {
+                    EWovaAuth.Dispose();
+                    EWovaAuth = null;
+                }
+            }
+        }
+#endif
+
+        /// <summary>
+        /// 儲存當前的 API 設定，供實例或擴充方法內部使用
+        /// </summary>
+        public static ProjectSettings? CurrentProjectSettings;
+
+        /// <summary>
+        /// 檢查當前的 API 設定是否有效，若無效則無法進行 API 請求
+        /// </summary>
+        public static bool IsProjectSettingsValid => CurrentProjectSettings?.IsValid(out _) ?? false;
+
+        private LPApiClient m_apiClient;
         [SerializeField] private UserData m_loginUserData;
-        private UserProjectRecordSheet m_loggedUserProjectRecord;
+        private Api.Project m_connectedProject;
+        private NetServiceRequestHandler m_netServiceRequestHandler;
+        private UserProjectRecordSheet m_currentUserProjectSheet;
         private int m_projectUsageRecordTrackingId;
-        [SerializeField] private NetServiceRequestHandler m_sheetNetServiceHandler;
+
+        private bool m_isUpdatingUserSheet;
+        private CancellationTokenSource m_heartbeatCts;
 
         public static bool IsConnected => Instance != null;
-        public static bool IsLoggedIn => IsConnected && Instance.m_loginUserData != null;
-        public static bool IsHasUserProjectRecord => IsLoggedIn && Instance.m_loggedUserProjectRecord != null;
-
-        public static bool IsLoginProcessing { get; private set; }
-        public static bool IsUpdatingUserProjectRecord { get; private set; }
-
-        public static APISettings CurrentAPISettings { get; private set; }
-        public static API.Project ConnectingProject { get; private set; }
-        public static UserData LoginUserData => IsLoggedIn ? Instance.m_loginUserData : null;
+        [Obsolete("現在的 ConnectAsync 已經包含了認證檢查，請直接使用 IsConnected 屬性就可以知道是否已連線。")]
+        public static bool IsLoggedIn => Instance != null;
+        public static bool IsHasUserProjectRecord => IsConnected && Instance.m_currentUserProjectSheet != null;
+        public static bool IsUpdatingUserProjectRecord => IsConnected && Instance.m_isUpdatingUserSheet;
+        public static UserData LoginUserData => IsConnected ? Instance.m_loginUserData : null;
+        /// <summary>
+        /// 當前專案資訊
+        /// </summary>
+        public static Api.Project ConnectedProject => IsConnected ? Instance.m_connectedProject : null;
         /// <summary>
         /// 登入中的使用者專案紀錄表
         /// </summary>
-        public static UserProjectRecordSheet LoggedUserProjectRecordSheet => IsLoggedIn ? Instance.m_loggedUserProjectRecord : null;
+        public static UserProjectRecordSheet LoggedUserProjectRecordSheet => IsConnected ? Instance.m_currentUserProjectSheet : null;
+        /// <summary>
+        /// 自訂的連線前置檢查要求，若有任何一個回傳 true，則 Connect 將會被阻擋，並回傳對應的錯誤訊息。
+        /// </summary>
+        /// <remarks>
+        /// 預設不會阻擋連線，但開發者有需求可以在此加入自訂的檢查邏輯，如：遊戲進行中，不允許後續連線到學習歷程服務等需求
+        /// </remarks>
+        public static readonly List<Func<(bool isBlocked, string bloackedMsg)>> ConnectBlocker = new();
+        public static (bool isBlocked, string bloackedMsg) IsConnectBlockedByCustomLogic
+        {
+            get
+            {
+                if (ConnectBlocker.Count == 0)
+                    return (false, null);
+
+                foreach (var require in ConnectBlocker)
+                {
+                    (bool isBlocked, string bloackedMsg) = require.Invoke();
+                    if (isBlocked)
+                        return (true, bloackedMsg);
+                }
+                return (false, null);
+            }
+        }
 
         public static event Action<UserData> OnUserLogin;
         public static event Action OnUserLogout;
@@ -169,314 +196,651 @@ namespace EWova.LearningPortfolio
         {
             UpdateUserProjectRecordShower();
         }
-
-        public static void Login(string account, string password, LoginRequestData overrideData = null, Action onSuccess = null, Action<Exception> onError = null)
+        private void OnDestroy()
         {
-            if (!IsConnected)
-            {
-                IsLoginProcessing = false;
-                OnError(new("LearningPortfolio 未連接，請先呼叫 LearningPortfolio.Connect。"), onError);
-                return;
-            }
-            if (IsLoginProcessing)
-            {
-                OnError(new("登入處理中，請稍後再試"), onError);
-                return;
-            }
-            if (IsLoggedIn)
-            {
-                OnError(new("已登入"), onError);
-                return;
-            }
-            if (string.IsNullOrWhiteSpace(account) || string.IsNullOrWhiteSpace(password))
-            {
-                OnError(new("帳號或密碼不可為空"), onError);
-                return;
-            }
+            if (EWovaAuth != null)
+                EWovaAuth.OnAuthStateChanged -= OnAuthStateChanged;
 
-            account = account.Trim();
-            password = password.Trim();
-
-            Client m_client = Client.CreateEmptyUser;
-            UniTask.Void(async () =>
+            if (s_instance == this)
             {
-                IsLoginProcessing = true;
-                bool result = await m_client.Login(account, password, keepAlive: false);
-                if (result)
-                    Instance.Internal_Login(m_client, overrideData, onSuccess, onError);
-                else
-                {
-                    OnError(new("登入失敗，帳號或密碼錯誤"), onError);
-                    IsLoginProcessing = false;
-                }
-            });
+                m_currentUserProjectSheet?.Dispose();
+                m_netServiceRequestHandler?.CancelAll();
+                m_apiClient?.Dispose();
+
+                if (Logger.InfoEnabled)
+                    Logger.Info("已斷開與學習歷程服務的連線，並清理相關資源。");
+                s_instance = null;
+            }
         }
-        public static void Login(string token, LoginRequestData overrideData = null, Action onSuccess = null, Action<Exception> onError = null)
+
+        private async UniTaskVoid KeepLoginUsageRecordHeartbeat()
         {
-            if (!IsConnected)
-            {
-                IsLoginProcessing = false;
-                OnError(new("LearningPortfolio 未連接，請先呼叫 LearningPortfolio.Connect。"), onError);
+            if (m_heartbeatCts != null)
                 return;
+
+            m_heartbeatCts = new CancellationTokenSource();
+            CancellationToken token = CancellationTokenSource.CreateLinkedTokenSource(m_heartbeatCts.Token, destroyCancellationToken).Token;
+
+            if (Logger.InfoEnabled)
+                Logger.Info("開始傳送心跳事件以定時紀錄專案使用狀態。");
+            try
+            {
+                await m_apiClient.KeepLoginUsageRecordHeartbeatAsyncProcess(m_projectUsageRecordTrackingId, token);
             }
-            if (IsLoginProcessing)
+            catch (OperationCanceledException)
             {
-                OnError(new("登入處理中，請稍後再試"), onError);
-                return;
+                if (Logger.InfoEnabled)
+                    Logger.Info("已取消心跳事件的傳送，停止紀錄專案使用狀態。");
             }
-            if (IsLoggedIn)
+            catch (ApiUsageException usageEx)
             {
-                OnError(new("已登入"), onError);
-                return;
+                if (Logger.WarnEnabled)
+                    Logger.Warn($"心跳事件傳送失敗，可能導致專案使用狀態無法正確紀錄。錯誤訊息: {usageEx.Message}");
             }
-            if (string.IsNullOrWhiteSpace(token))
+            catch (Exception ex)
             {
-                OnError(new("Token 不能為空"), onError);
-                return;
+                if (Logger.ErrorEnabled)
+                    UnityEngine.Debug.LogException(ex);
             }
 
-            token = token.Trim();
-
-            Client m_client = Client.CreateEmptyUser;
-            UniTask.Void(async () =>
-            {
-                IsLoginProcessing = true;
-                bool result = await m_client.Login(token, keepAlive: false);
-                if (result)
-                    Instance.Internal_Login(m_client, overrideData, onSuccess, onError);
-                else
-                {
-                    OnError(new("登入失敗，Token 無效或過期"), onError);
-                    IsLoginProcessing = false;
-                }
-            });
         }
-        public static void Login(Client client, LoginRequestData overrideData = null, Action onSuccess = null, Action<Exception> onError = null)
+
+        public static void CheckAvailability(CheckAvailabilityProcess process, CancellationToken ct = default)
+            => CheckAvailabilityAsync(process, ct).Forget();
+        public static async UniTask CheckAvailabilityAsync(CheckAvailabilityProcess process, CancellationToken ct = default)
         {
-            if (!IsConnected)
+            using var scope = Scope<CheckAvailabilityProcess>.Warp(process);
+
+            if (process == null)
+                throw new ArgumentNullException(nameof(process));
+
+            ct.ThrowIfCancellationRequested();
+
+            process.Status = CheckAvailabilityStatus.DefaultSettingsLoad;
+            if (!LoadProjectSettings(out string errorMsg))
             {
-                IsLoginProcessing = false;
-                OnError(new("LearningPortfolio 未連接，請先呼叫 LearningPortfolio.Connect。"), onError);
-                return;
-            }
-            if (IsLoginProcessing)
-            {
-                OnError(new("登入處理中，請稍後再試"), onError);
-                return;
-            }
-            if (IsLoggedIn)
-            {
-                OnError(new("已登入"), onError);
+                process.ClientErrorMessage = $"讀取學習歷程專案設定失敗: {errorMsg}";
                 return;
             }
 
-            IsLoginProcessing = true;
-            Instance.Internal_Login(client, overrideData, onSuccess, onError);
+            if (Instance != null)
+            {
+                process.Status = CheckAvailabilityStatus.Success;
+                process.Data = Instance.m_connectedProject;
+                return;
+            }
+
+            if (!AuthProvider.IsSupportAuthorizeViaDeepLink)
+            {
+                process.Status = CheckAvailabilityStatus.PlatformNotSupportLogin;
+                process.ClientErrorMessage = "當前平台不支援使用系統瀏覽器進行 DeepLink 跳轉授權，無法使用學習歷程服務。";
+                return;
+            }
+
+            process.Status = CheckAvailabilityStatus.ApiCheckApiHealth;
+            var client = new LPApiClient(EWovaAuth, logger: ApiClientLogger);
+            await InternalCheckAvailabilityAsync(process, client, ct);
+
+            if (!process.IsSuccess)
+            {
+                client.Dispose();
+                UnityEngine.Debug.LogException(process.Exception);
+            }
+            else
+            {
+                process.Status = CheckAvailabilityStatus.Success;
+            }
+
         }
-        private void Internal_Login(Client client, LoginRequestData requestData, Action onSuccess = null, Action<Exception> onError = null)
+
+        public static void Connect(ConnectProcess process, CancellationToken cancellationToken = default)
+            => ConnectAsync(process, cancellationToken).Forget();
+        public static async UniTask ConnectAsync(
+            ConnectProcess process,
+            CancellationToken cancellationToken = default)
         {
-            if (client == null)
+            using var scope = Scope<ConnectProcess>.Warp(process);
+
+            (bool isBlocked, string blockedMessage) = IsConnectBlockedByCustomLogic;
+
+            if (isBlocked)
             {
-                IsLoginProcessing = false;
-                OnError(new("Client 不能為空"), onError);
-                return;
-            }
-            if (!client.IsLogin)
-            {
-                IsLoginProcessing = false;
-                OnError(new("Client 端口未登入"), onError);
+                process.Status = ConnectStatus.ConnectBlockedByCustomLogic;
+                process.ClientErrorMessage = blockedMessage;
                 return;
             }
 
-            requestData ??= LoginRequestData.CreateDefault();
-            if (requestData.UsingDeviceId == (int)UsingDeviceList.Auto)
-                requestData.UsingDeviceId = (int)DeviceHelper.GetCurrentDevice();
+            if (process == null)
+                throw new ArgumentNullException(nameof(process));
 
-            UniTask.Void(async () =>
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (Instance != null)
             {
+                process.Status = ConnectStatus.Success;
+                process.Data = Instance;
+                return;
+            }
+
+            process.Status = ConnectStatus.CheckAvailability_DefaultSettingsLoad;
+            if (!LoadProjectSettings(out string errorMsg))
+            {
+                process.ClientErrorMessage = $"讀取學習歷程專案設定失敗: {errorMsg}";
+                return;
+            }
+
+            process.Progress = 0.05f;
+
+            if (!EWovaAuth.IsAuthenticated)
+            {
+                process.Status = ConnectStatus.UserAuthFlow;
+                process.Progress = 0.1f;
+
                 try
                 {
-                    IsLoginProcessing = true;
-                    var cancellationToken = this.GetCancellationTokenOnDestroy();
-                    bool isSuccess = await client.CheckAlive(cancellationToken);
-                    if (isSuccess)
+                    AuthorizeViaBrowserOptions option = AuthorizeViaBrowserOptions.Default;
+#if UNITY_EDITOR
+                    if (Authoring.LearningPortfolioEditorPrefs.DisableForceLogin)
                     {
-                        UserProfile userProfile = await client.GetProfile(cancellationToken);
-                        OrganizationProfile orgProfile = await client.GetOrganization(cancellationToken);
-
-                        if (userProfile != null && orgProfile != null)
-                        {
-
-                            var loginUserData = new UserData();
-                            loginUserData.Name = userProfile.name;
-                            loginUserData.Nickname = userProfile.nickname;
-                            loginUserData.Guid = userProfile.guid.ToString();
-                            loginUserData.OrgName = orgProfile.name;
-                            loginUserData.OrgGuid = orgProfile.guid.ToString();
-
-                            API.ProjectUsageRecordResponse record = await CreateProjectUsageRecord
-                            (
-                                ConnectingProject.Id.ToString(),
-                                loginUserData.Guid,
-                                new API.SetProjectUsageRecordRequest()
-                                {
-                                    UsingDeviceId = requestData.UsingDeviceId
-                                }
-                            );
-
-                            IsLoginProcessing = false;
-                            m_loginUserData = loginUserData;
-
-                            m_projectUsageRecordTrackingId = record.TrackingID;
-
-                            if (KeepLoginUsageRecordHeartbeatCoro != null)
-                                StopCoroutine(KeepLoginUsageRecordHeartbeatCoro);
-                            KeepLoginUsageRecordHeartbeatCoro = StartCoroutine(KeepLoginUsageRecordHeartbeat());
-
-                            OnUserLogin.InvokeSafely(m_loginUserData, @throw: ex => Debug.LogException(ex, "OnUserLogout handler exception:"));
-                            onSuccess?.Invoke();
-                        }
-                        else
-                        {
-                            IsLoginProcessing = false;
-                            OnError(new("回傳使用者資料為空。"), onError);
-                        }
+                        option.LoginBehavior = LoginBehavior.Standard;
+                        Authoring.DevelopTip.Info("目前已關閉強制登入，若需切換登入帳號，可以到 EWova/Editor/Learning Portfolio/Disable Force Login 關閉此設定。");
                     }
                     else
                     {
-                        IsLoginProcessing = false;
-                        OnError(new("Client 無法保持登入狀態，請重新登入。"), onError);
+                        Authoring.DevelopTip.Info("編輯器開發時，可啟用 EWova/Editor/Learning Portfolio/Disable Force Login 關閉強制登入，在瀏覽器驗證過的情況下可以直接完成驗證，方便開發者重複登入。");
+                    }
+#endif
+                    AuthorizeResult loginResult = await EWovaAuth.AuthorizeViaBrowserAsync(option, cancellationToken: cancellationToken);
+                    if (loginResult.Status != AuthorizeProcessResult.Success)
+                    {
+                        if (loginResult.Status == AuthorizeProcessResult.Cancelled)
+                        {
+                            process.Status = ConnectStatus.ManuallyCancel;
+                        }
+                        else if (loginResult.Status == AuthorizeProcessResult.Failed)
+                        {
+                            process.Status = ConnectStatus.UserAuthFlow;
+                            process.Exception = loginResult.Exception ?? new Exception(loginResult.ErrorMessage ?? "未知的授權錯誤");
+                        }
+                        return;
                     }
                 }
                 catch (OperationCanceledException)
                 {
-                    IsLoginProcessing = false;
-                    OnError(new("已取消登入操作。"), onError);
+                    process.Status = ConnectStatus.ManuallyCancel;
+                    return;
                 }
                 catch (Exception ex)
                 {
-                    IsLoginProcessing = false;
-                    OnError(new("登入意外失敗。"), onError);
-                    Debug.LogException(ex);
+                    process.Status = ConnectStatus.UserAuthFlow;
+                    process.Exception = ex;
+                    return;
                 }
+            }
+            process.Progress = 0.2f;
+
+            var client = new LPApiClient(EWovaAuth, logger: ApiClientLogger);
+            var pendingUserData = client.AuthenticatedUserProfile;
+            var instance = new GameObject().AddComponent<LearningPortfolio>();
+            instance.gameObject.name = $"{Name} ({pendingUserData.Nickname}) connecting...";
+            instance.enabled = false;
+            instance.m_apiClient = client;
+
+            process.PendingAuthUserProfile = pendingUserData;
+            process.Status = ConnectStatus.UserAuthFlowOK;
+
+            ConnectProcess internalProcess = new();
+            internalProcess.OnProgressChanged += p => process.Progress = 0.2f + (p * 0.7f);
+            internalProcess.OnStatusChanged += s => process.Status = s;
+            await instance.InternalConnectAsync(internalProcess, cancellationToken);
+
+            if (!internalProcess.IsSuccess)
+            {
+                // 只要連線與獲取資料失敗，則登出以確保狀態一致
+                GameObject.Destroy(instance);
+                client.Dispose();
+                EWovaAuth.Logout();
+            }
+            else
+            {
+                instance.gameObject.name = $"{Name} ({pendingUserData.Nickname})";
+                instance.enabled = true;
+                instance.KeepLoginUsageRecordHeartbeat().Forget();
+
+                process.Progress = 1.0f;
+                process.Status = ConnectStatus.Success;
+
+                Instance = instance;
+                OnUserLogin.InvokeSafely(Instance.m_loginUserData, onThrow: ex =>
+                {
+                    if (Logger.ErrorEnabled)
+                        Logger.Err("OnUserLogin handler exception:" + ex);
+                    UnityEngine.Debug.LogException(ex);
+                });
+            }
+        }
+        private static bool _isDisconnecting = false;
+
+        public static void Disconnect()
+            => DisconnectAsync().Forget();
+        public static async UniTask DisconnectAsync()
+        {
+            if (_isDisconnecting)
+                return;
+
+            if (s_instance == null)
+                return;
+
+            try
+            {
+                _isDisconnecting = true;
+                if (s_instance.m_isUpdatingUserSheet)
+                    await UniTask.WaitUntil(() => !s_instance.m_isUpdatingUserSheet);
+
+                var go = s_instance.gameObject;
+                if (go != null)
+                    GameObject.Destroy(go);
+
+                EWovaAuth.Logout();
+            }
+            finally
+            {
+                _isDisconnecting = false;
+                OnUserLogout.InvokeSafely(onThrow: ex =>
+                {
+                    if (Logger.ErrorEnabled)
+                        Logger.Err("OnUserLogout handler exception:" + ex);
+                    UnityEngine.Debug.LogException(ex);
+                });
+
+                // 確保實例被銷毀
+                if (s_instance != null)
+                {
+                    var go = s_instance.gameObject;
+                    if (go != null)
+                        GameObject.Destroy(go);
+                }
+            }
+        }
+
+        public static ProjectRecordShower CreateUserProjectRecordShower(RectTransform rectTransform)
+        {
+            ProjectRecordShower plane = ProjectRecordShower.InstantiatePlane(rectTransform);
+
+            if (Instance.m_currentUserProjectSheet == null)
+                return plane;
+
+            Instance.m_managedProjectRecordShowers.Add(plane);
+            InjectDataToShower(plane, Instance.m_currentUserProjectSheet);
+            return plane;
+        }
+        public static async UniTask FetchUserProjectSheet(FetchProjectSheetProcess process, CancellationToken ct)
+        {
+            using var scope = Scope<FetchProjectSheetProcess>.Warp(process);
+
+            if (!IsConnected)
+            {
+                process.Status = FetchProjectSheetStatus.FailedNotConnected;
+                process.ClientErrorMessage = "尚未連線到學習歷程服務，無法取得使用者專案紀錄表。請先呼叫 ConnectAsync 並確保連線成功。";
+                return;
+            }
+
+            if (Instance.m_isUpdatingUserSheet)
+            {
+                await UniTask.WaitUntil(() => !Instance.m_isUpdatingUserSheet, cancellationToken: ct);
+                process.Status = FetchProjectSheetStatus.Success;
+                process.Data = Instance.m_currentUserProjectSheet;
+                return;
+            }
+
+            process.Status = FetchProjectSheetStatus.FailedFetchProjectSheetInProgress;
+
+            Instance.m_isUpdatingUserSheet = true;
+            try
+            {
+                await Instance.InternalFetchProjectSheetAsync(process, ct);
+            }
+            finally
+            {
+                Instance.m_isUpdatingUserSheet = false;
+            }
+
+            if (!process.IsSuccess)
+            {
+                Debug.LogException(process.Exception);
+                return;
+            }
+
+            Instance.m_currentUserProjectSheet = process.Data;
+            OnUserProjectRecordUpdated.InvokeSafely(Instance.m_currentUserProjectSheet, onThrow: ex =>
+            {
+                if (Logger.ErrorEnabled)
+                    Logger.Err("OnUserProjectRecordUpdated handler exception:" + ex);
+                UnityEngine.Debug.LogException(ex);
             });
         }
-        Coroutine KeepLoginUsageRecordHeartbeatCoro;
-        IEnumerator KeepLoginUsageRecordHeartbeat()
+
+        private static void OnAuthStateChanged(AuthState newState)
         {
-            while (true)
+            if (newState == AuthState.Unauthenticated)
+                DisconnectAsync().Forget();
+        }
+        private static async UniTask InternalCheckAvailabilityAsync(CheckAvailabilityProcess process, LPApiClient client, CancellationToken ct = default)
+        {
+            using var scope = Scope<CheckAvailabilityProcess>.Warp(process);
+
+            ct.ThrowIfCancellationRequested();
+            try
             {
-                if (!IsLoggedIn)
+                // 1. 檢查 API 健康狀態
+                process.Progress = 0.05f;
+                process.Status = CheckAvailabilityStatus.ApiCheckApiHealth;
+                await client.CheckApiHealthAsync(ct);
+
+                // 2. 驗證 API 金鑰並取得專案資訊
+                process.Progress = 0.50f;
+                process.Status = CheckAvailabilityStatus.ApiGetApiKeyValidInfo;
+                Api.VerifyProjectInfo valid = await client.GetApiKeyValidInfoAsync(ct);
+
+                process.Status = CheckAvailabilityStatus.CheckApiKeyInvalid;
+                if (!valid.IsValid)
                 {
-                    KeepLoginUsageRecordHeartbeatCoro = null;
-                    yield break;
+                    process.ServerErrorMessage = valid.ErrorMessage;
+                    return;
                 }
 
-                yield return new WaitForSeconds(30f);
-                ProjectUsageRecordHeartbeat(m_projectUsageRecordTrackingId).Forget();
+                // 3. 取得專案資訊
+                process.Progress = 0.75f;
+                process.Status = CheckAvailabilityStatus.GetProject;
+                Api.Project project = await client.GetProjectAsync(valid.ProjectId, ct);
+
+                process.Progress = 1.0f;
+                process.Status = CheckAvailabilityStatus.Success;
+                process.Data = project;
+                return;
+            }
+            catch (OperationCanceledException)
+            {
+                client.Dispose();
+                process.Status = CheckAvailabilityStatus.ManuallyCancel;
+                return;
+            }
+            catch (Exception ex)
+            {
+                client.Dispose();
+                process.Exception = ex;
+                return;
             }
         }
-
-        public static void Logout(Action onSuccess = null, Action<Exception> onError = null)
+        private async UniTask InternalConnectAsync(ConnectProcess process, CancellationToken ct = default)
         {
-            if (IsLoginProcessing)
-            {
-                OnError(new("登入中，請稍後再試。"), onError);
-                return;
-            }
+            using var scope = Scope<ConnectProcess>.Warp(process);
 
-            if (!IsLoggedIn)
+            var client = m_apiClient;
+            try
             {
-                OnError(new("未登入。"), onError);
-                return;
-            }
+                process.Progress = 0.05f;
+                CheckAvailabilityProcess checkProAvaProcess = new CheckAvailabilityProcess();
+                checkProAvaProcess.OnProgressChanged += p => process.Progress = 0.05f + (p * 0.35f);
+                checkProAvaProcess.OnStatusChanged += s =>
+                {
+                    process.Status = s switch
+                    {
+                        CheckAvailabilityStatus.DefaultSettingsLoad
+                            => ConnectStatus.CheckAvailability_DefaultSettingsLoad,
+                        CheckAvailabilityStatus.ApiCheckApiHealth
+                            => ConnectStatus.CheckAvailability_ApiCheckApiHealth,
+                        CheckAvailabilityStatus.ApiGetApiKeyValidInfo
+                            => ConnectStatus.CheckAvailability_ApiGetApiKeyValidInfo,
+                        CheckAvailabilityStatus.CheckApiKeyInvalid
+                            => ConnectStatus.CheckAvailability_ApiKeyInvalid,
+                        CheckAvailabilityStatus.GetProject
+                            => ConnectStatus.CheckAvailability_GetProject,
+                        _
+                            => ConnectStatus.CheckAvailability
+                    };
+                };
+                await InternalCheckAvailabilityAsync(checkProAvaProcess, client, ct);
 
-            Instance.m_loginUserData = null;
-            OnUserLogout.InvokeSafely(@throw: ex => Debug.LogException(ex, "OnUserLogout handler exception:"));
-            if (Instance.m_loggedUserProjectRecord != null)
-            {
-                Instance.m_loggedUserProjectRecord.Dispose();
-                Instance.m_loggedUserProjectRecord = null;
+                if (!checkProAvaProcess.IsSuccess)
+                    return;
+
+                Api.Project project = checkProAvaProcess.Data;
+
+                // 建立專案使用紀錄
+                process.Progress = 0.4f;
+                process.Status = ConnectStatus.CreateProjectUsageSheet;
+                var info = DeviceHelper.GetDeviceInfo();
+                var authUserProfile = client.AuthenticatedUserProfile;
+                var record = await client.CreateProjectUsageRecordAsync
+                (
+                    project.Id.ToString(),
+                    new Api.SetProjectUsageRecordRequest()
+                    {
+#pragma warning disable CS0618 // 類型或成員已經過時
+                        UsingDeviceId = (int)info.UsingDeviceId,
+#pragma warning restore CS0618 // 類型或成員已經過時
+
+                        // 這邊回呼後台傳來的當前組織，尚未實作多組織切換
+                        OrgId = authUserProfile.OrgId.ToString(),
+                        Platform = info.Platform,
+                        DeviceModel = info.DeviceModel,
+                        IsXRActive = info.IsXRActive
+                    }, ct
+                );
+
+                var userData = new UserData()
+                {
+                    Name = authUserProfile.Name,
+                    Nickname = authUserProfile.Nickname,
+                    Guid = authUserProfile.Id.ToString(),
+                    OrgName = authUserProfile.OrgName,
+                    OrgGuid = authUserProfile.OrgId.ToString(),
+                };
+
+                // 成功建立
+                m_projectUsageRecordTrackingId = record.TrackingID;
+                m_apiClient = client;
+                m_loginUserData = userData;
+                m_connectedProject = project;
+                m_netServiceRequestHandler = new NetServiceRequestHandler();
+
+                process.Status = ConnectStatus.FetchProjectSheet;
+
+                EWovaAuth.OnAuthStateChanged += OnAuthStateChanged;
+
+                process.Progress = 0.5f;
+                FetchProjectSheetProcess fetchProSheet = new();
+                fetchProSheet.OnProgressChanged += p => process.Progress = 0.5f + (p * 0.4f);
+                fetchProSheet.OnStatusChanged += s =>
+                {
+                    process.Status = fetchProSheet.Status switch
+                    {
+                        FetchProjectSheetStatus.FindSheets
+                            => ConnectStatus.FetchProjectSheet_FindSheets,
+                        FetchProjectSheetStatus.GetSheet
+                            => ConnectStatus.FetchProjectSheet_GetSheet,
+                        FetchProjectSheetStatus.InternalHandleSheet
+                            => ConnectStatus.FetchProjectSheet_InternalHandleSheet,
+                        FetchProjectSheetStatus.ManuallyCancel
+                            => ConnectStatus.ManuallyCancel,
+                        _
+                            => ConnectStatus.FetchProjectSheet
+                    };
+                };
+                await InternalFetchProjectSheetAsync(fetchProSheet, ct);
+
+                if (!fetchProSheet.IsSuccess)
+                {
+                    if (fetchProSheet.Status == FetchProjectSheetStatus.ManuallyCancel)
+                    {
+                        if (Logger.WarnEnabled)
+                            Logger.Warn("Fetch project sheet cancelled by user.");
+                    }
+                    else
+                    {
+                        if (Logger.ErrorEnabled)
+                            Logger.Err($"Fetch project sheet failed. Failure reason: {fetchProSheet.Status}");
+
+                        if (fetchProSheet.Exception != null)
+                            UnityEngine.Debug.LogException(fetchProSheet.Exception);
+                    }
+
+                    EWovaAuth.OnAuthStateChanged -= OnAuthStateChanged;
+                    return;
+                }
+
+                // callback
+                m_currentUserProjectSheet = fetchProSheet.Data;
+
+                process.Exception = null;
+                process.Status = ConnectStatus.Success;
+                process.Data = this;
+                process.Progress = 1.0f;
             }
-            onSuccess?.Invoke();
+            catch (LearningPortfolioApiException apiEx)
+            {
+                process.Exception = apiEx;
+                if (apiEx.SourceApiEx.IsServerError)
+                    process.ServerErrorMessage = apiEx.SourceApiEx.Message;
+            }
+            catch (OperationCanceledException)
+            {
+                process.Status = ConnectStatus.ManuallyCancel;
+            }
+            catch (Exception ex)
+            {
+                process.Exception = ex;
+            }
         }
-
-        public static void UpdatingUserProjectRecord(Action<UserProjectRecordSheet> onSuccess,
-                                                     Action<Exception> onError)
+        private async UniTask InternalFetchProjectSheetAsync(FetchProjectSheetProcess process, CancellationToken ct)
         {
-            if (!IsLoggedIn)
-            {
-                OnError(new("未登入，請先登入。"), onError);
-                return;
-            }
-            if (IsUpdatingUserProjectRecord)
-            {
-                OnError(new("正在更新使用者紀錄，請稍後再試。"), onError);
-                return;
-            }
+            using var scope = Scope<FetchProjectSheetProcess>.Warp(process);
 
             Dictionary<string, List<Action<Texture2D>>> texResourceHandle = new();
 
-            IsUpdatingUserProjectRecord = true;
-            UniTask.Void(async () =>
+            UserProjectRecordSheet RESULT = null;
+            try
             {
-                UserProjectRecordSheet RESULT = null;
-                try
+                process.Status = FetchProjectSheetStatus.FindSheets;
+                #region 1. 尋找使用者所有紀錄，並選擇第一個；若無紀錄將會自動建立一筆新的紀錄。
+                process.Progress = 0.05f;
+                List<string> FoundSheets = await m_apiClient.FindSheetsAsync(m_connectedProject.Id.ToString(), ct);
+                string targetSheet = FoundSheets[0];
+                process.Progress = 0.10f;
+                #endregion
+
+                process.Status = FetchProjectSheetStatus.GetSheet;
+                #region 2. 取得紀錄內容
+                Api.Sheet _rawSheet = await m_apiClient.GetSheetAsync(targetSheet, ct);
+                process.Progress = 0.20f;
+                #endregion
+
+                RESULT = new UserProjectRecordSheet(
+                    sourceProject: m_connectedProject,
+                    netServiceHandler: m_netServiceRequestHandler) // 網路服務請求，統一線程列隊處理
                 {
-                    // 尋找所有使用者有的報表
-                    List<string> FoundSheets;
-                    try
+
+                    Owner = m_loginUserData,
+
+                    UserId = _rawSheet.UserId.ToString(),
+
+                    Name = _rawSheet.Name,
+                    SheetId = _rawSheet.Id.ToString(),
+                    ProjectId = _rawSheet.ProjectId.ToString(),
+                    LastUpdatedLocal = _rawSheet.LastUpdated.ToLocalTime(),
+                    CompletionProgress = _rawSheet.CompletionProgress,
+
+                    Pages = new Page[_rawSheet.PageLabels.Length]
+                };
+
+                process.Status = FetchProjectSheetStatus.InternalHandleSheet;
+                #region 3. 初始化路徑節點節點的標記與取消標記方法
+                RESULT.SetCompleteIncludeNonNode = new NetSerivceRequest<string>
+                (
+                    requestHandler: RESULT.NetServiceHandler,
+                    func: (path, ct) => m_apiClient.SetCompleteProgressAsync
+                    (
+                        sheetId: RESULT.SheetId,
+                        path: path,
+                        ct: ct
+                    ),
+                    newValueFunc: async (path, ct) =>
                     {
-                        FoundSheets = await FindSheetsAsync(ConnectingProject.Id.ToString(), Instance.m_loginUserData.Guid);
+                        RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
+
+                        if (RESULT.ProgressCompletions.Contains(path))
+                            return;
+
+                        ((List<string>)RESULT.ProgressCompletions).Add(path);
+                        ((List<DateTime>)RESULT.ProgressCompletionsLocalDateTime).Add(DateTime.Now);
                     }
-                    catch (Exception ex)
+                );
+                RESULT.SetUnmarkIncludeNonNode = new NetSerivceRequest<string>
+                (
+                    requestHandler: RESULT.NetServiceHandler,
+                    func: (path, ct) => m_apiClient.SetUnmarkProgressAsync
+                    (
+                        sheetId: RESULT.SheetId,
+                        path: path,
+                        ct: ct
+                    ),
+                    newValueFunc: async (path, ct) =>
                     {
-                        throw new Exception($"尋找使用者紀錄失敗\nDetail:{ex.Message}", ex);
+                        RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
+
+                        int index = ((List<string>)RESULT.ProgressCompletions).IndexOf(path);
+
+                        if (index >= 0)
+                        {
+                            ((List<string>)RESULT.ProgressCompletions).RemoveAt(index);
+                            ((List<DateTime>)RESULT.ProgressCompletionsLocalDateTime).RemoveAt(index);
+                        }
                     }
-                    string TargetSheet = FoundSheets[0];
+                );
+                #endregion
 
-                    // 結果
-                    Instance.m_sheetNetServiceHandler = new();
-
-                    // 處理報表
-                    API.Sheet _rawSheet;
-                    try
+                #region 4. 處理進度節點，包含建立節點結構、計算分數權重、以及設定標記與取消標記的網路服務方法
+                ProgressNode progressNodeTemp = null;
+                float totalScoreWeight = 0f;
+                void SetProgressNode(ref ProgressNode pNode, Api.ProgressNode rawNode, ProgressNode parent)
+                {
+                    pNode = new()
                     {
-                        _rawSheet = await GetSheetAsync(TargetSheet);
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new Exception($"讀取使用者紀錄(0)失敗\nDetail:{ex.Message}", ex);
-                    }
-
-                    RESULT = new UserProjectRecordSheet
-                    {
-                        Owner = Instance.m_loginUserData,
-                        NetServiceHandler = Instance.m_sheetNetServiceHandler,
-
-                        UserId = _rawSheet.UserId.ToString(),
-
-                        Name = _rawSheet.Name,
-                        SheetId = _rawSheet.Id.ToString(),
-                        ProjectId = _rawSheet.ProjectId.ToString(),
-                        LastUpdatedLocal = _rawSheet.LastUpdated.ToLocalTime(),
-                        CompletionProgress = _rawSheet.CompletionProgress,
-
-                        Pages = new Page[_rawSheet.PageLabels.Length]
+                        RootSheet = RESULT,
+                        Parent = parent,
+                        Id = rawNode.Id,
+                        Label = rawNode.Label,
+                        Description = rawNode.Description,
+                        ScoreWeight = rawNode.ScoreWeight,
+                        IsHidden = rawNode.Hidden,
+                        Children = new ProgressNode[rawNode.Children?.Length ?? 0]
                     };
+                    if (pNode.IsLeaf)
+                        totalScoreWeight += rawNode.ScoreWeight;
 
-                    RESULT.SetCompleteIncludeNonNode = new NetSerivceRequest<string>
+                    if (!texResourceHandle.ContainsKey(rawNode.IconUrl))
+                        texResourceHandle[rawNode.IconUrl] = new();
+                    ProgressNode cache = pNode;
+                    texResourceHandle[rawNode.IconUrl].Add((tex) =>
+                    {
+                        cache.IconTex = tex;
+                    });
+
+                    pNode.Path = parent == null ? pNode.Id : $"{parent.Path}/{pNode.Id}";
+                    string path = pNode.Path;
+                    pNode.SetComplete = new NetSerivceVoid
                     (
                         requestHandler: RESULT.NetServiceHandler,
-                        func: path => SetCompleteProgress
+                        func: (ct) => m_apiClient.SetCompleteProgressAsync
                         (
                             sheetId: RESULT.SheetId,
-                            path: path
+                            path: path,
+                            ct: ct
                         ),
-                        newValueFunc: async path =>
+                        respondFunc: async (ct) =>
                         {
-                            RESULT.CompletionProgress = await GetProgressCompletion(RESULT.SheetId);
-
+                            RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
                             if (RESULT.ProgressCompletions.Contains(path))
                                 return;
 
@@ -484,437 +848,396 @@ namespace EWova.LearningPortfolio
                             ((List<DateTime>)RESULT.ProgressCompletionsLocalDateTime).Add(DateTime.Now);
                         }
                     );
-                    RESULT.SetUnmarkIncludeNonNode = new NetSerivceRequest<string>
+                    pNode.SetUnmark = new NetSerivceVoid
                     (
                         requestHandler: RESULT.NetServiceHandler,
-                        func: path => SetUnmarkProgress
+                        func: (ct) => m_apiClient.SetUnmarkProgressAsync
                         (
                             sheetId: RESULT.SheetId,
-                            path: path
+                            path: path,
+                            ct: ct
                         ),
-                        newValueFunc: async path =>
+                        respondFunc: async (ct) =>
                         {
-                            RESULT.CompletionProgress = await GetProgressCompletion(RESULT.SheetId);
+                            RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
 
                             int index = ((List<string>)RESULT.ProgressCompletions).IndexOf(path);
 
-                            if (index >= 0)
-                            {
-                                ((List<string>)RESULT.ProgressCompletions).RemoveAt(index);
-                                ((List<DateTime>)RESULT.ProgressCompletionsLocalDateTime).RemoveAt(index);
-                            }
+                            ((List<string>)RESULT.ProgressCompletions).RemoveAt(index);
+                            ((List<DateTime>)RESULT.ProgressCompletionsLocalDateTime).RemoveAt(index);
                         }
                     );
 
-                    ProgressNode progressNodeTemp = null;
-                    float totalScoreWeight = 0f;
-                    void SetProgressNode(ref ProgressNode pNode, API.ProgressNode rawNode, ProgressNode parent)
+                    if (rawNode.Children != null)
                     {
-                        pNode = new()
-                        {
-                            RootSheet = RESULT,
-                            Parent = parent,
-                            Id = rawNode.Id,
-                            Label = rawNode.Label,
-                            Description = rawNode.Description,
-                            ScoreWeight = rawNode.ScoreWeight,
-                            IsHidden = rawNode.Hidden,
-                            Children = new ProgressNode[rawNode.Children?.Length ?? 0]
-                        };
-                        if (pNode.IsLeaf)
-                            totalScoreWeight += rawNode.ScoreWeight;
-
-                        if (!texResourceHandle.ContainsKey(rawNode.IconUrl))
-                            texResourceHandle[rawNode.IconUrl] = new();
-                        ProgressNode cache = pNode;
-                        texResourceHandle[rawNode.IconUrl].Add((tex) =>
-                        {
-                            cache.IconTex = tex;
-                        });
-
-                        pNode.Path = parent == null ? pNode.Id : $"{parent.Path}/{pNode.Id}";
-                        string path = pNode.Path;
-                        pNode.SetComplete = new NetSerivceVoid
-                        (
-                            requestHandler: RESULT.NetServiceHandler,
-                            func: () => SetCompleteProgress
-                            (
-                                sheetId: RESULT.SheetId,
-                                path: path
-                            ),
-                            respondFunc: async () =>
-                            {
-                                RESULT.CompletionProgress = await GetProgressCompletion(RESULT.SheetId);
-                                if (RESULT.ProgressCompletions.Contains(path))
-                                    return;
-
-                                ((List<string>)RESULT.ProgressCompletions).Add(path);
-                                ((List<DateTime>)RESULT.ProgressCompletionsLocalDateTime).Add(DateTime.Now);
-                            }
-                        );
-                        pNode.SetUnmark = new NetSerivceVoid
-                        (
-                            requestHandler: RESULT.NetServiceHandler,
-                            func: () => SetUnmarkProgress
-                            (
-                                sheetId: RESULT.SheetId,
-                                path: path
-                            ),
-                            respondFunc: async () =>
-                            {
-                                RESULT.CompletionProgress = await GetProgressCompletion(RESULT.SheetId);
-
-
-                                int index = ((List<string>)RESULT.ProgressCompletions).IndexOf(path);
-
-                                ((List<string>)RESULT.ProgressCompletions).RemoveAt(index);
-                                ((List<DateTime>)RESULT.ProgressCompletionsLocalDateTime).RemoveAt(index);
-                            }
-                        );
-
-                        if (rawNode.Children != null)
-                        {
-                            for (int i = 0; i < rawNode.Children.Length; i++)
-                                SetProgressNode(ref pNode.Children[i], rawNode.Children[i], pNode);
-                        }
+                        for (int i = 0; i < rawNode.Children.Length; i++)
+                            SetProgressNode(ref pNode.Children[i], rawNode.Children[i], pNode);
                     }
-                    SetProgressNode(ref progressNodeTemp, _rawSheet.ProgressNode, null);
+                }
+                SetProgressNode(ref progressNodeTemp, _rawSheet.ProgressNode, null);
 
-                    var allProgressNodesPathMapTemp = new Dictionary<string, ProgressNode>(StringComparer.OrdinalIgnoreCase);
-                    void AfterProcessNode(ProgressNode pNode)
+                var allProgressNodesPathMapTemp = new Dictionary<string, ProgressNode>(StringComparer.OrdinalIgnoreCase);
+                void AfterProcessNode(ProgressNode pNode)
+                {
+                    allProgressNodesPathMapTemp[pNode.Path] = pNode;
+
+                    pNode.CalculatedProgressScore = totalScoreWeight == 0 ? 0 : (pNode.ScoreWeight / totalScoreWeight);
+                    if (pNode.Children != null)
                     {
-                        allProgressNodesPathMapTemp[pNode.Path] = pNode;
-
-                        pNode.CalculatedProgressScore = totalScoreWeight == 0 ? 0 : (pNode.ScoreWeight / totalScoreWeight);
-                        if (pNode.Children != null)
-                        {
-                            for (int i = 0; i < pNode.Children.Length; i++)
-                                AfterProcessNode(pNode.Children[i]);
-                        }
+                        for (int i = 0; i < pNode.Children.Length; i++)
+                            AfterProcessNode(pNode.Children[i]);
                     }
-                    AfterProcessNode(progressNodeTemp);
+                }
+                AfterProcessNode(progressNodeTemp);
 
-                    RESULT.ProgressNode = progressNodeTemp;
-                    RESULT.AllProgressNodesPathMap = allProgressNodesPathMapTemp;
+                RESULT.ProgressNode = progressNodeTemp;
+                RESULT.AllProgressNodesPathMap = allProgressNodesPathMapTemp;
 
-                    if (_rawSheet.ProgressCompletions != null)
+                if (_rawSheet.ProgressCompletions != null)
+                {
+                    var paths = new List<string>();
+                    var localTimes = new List<DateTime>();
+
+                    foreach (var item in _rawSheet.ProgressCompletions)
                     {
-                        var paths = new List<string>();
-                        var localTimes = new List<DateTime>();
+                        if (string.IsNullOrWhiteSpace(item.Path))
+                            continue;
 
-                        foreach (var item in _rawSheet.ProgressCompletions)
-                        {
-                            if (string.IsNullOrWhiteSpace(item.Path))
-                                continue;
-
-                            paths.Add(item.Path);
-                            localTimes.Add(item.DateTime.ToLocalTime());
-                        }
-
-                        RESULT.ProgressCompletions = paths;
-                        RESULT.ProgressCompletionsLocalDateTime = localTimes;
+                        paths.Add(item.Path);
+                        localTimes.Add(item.DateTime.ToLocalTime());
                     }
 
-                    // 處理頁
-                    for (int i = 0; i < _rawSheet.PageLabels.Length; i++)
+                    RESULT.ProgressCompletions = paths;
+                    RESULT.ProgressCompletionsLocalDateTime = localTimes;
+                }
+                #endregion
+
+                #region 5. 處理頁籤與欄位資料，包含建立頁籤結構、讀取欄位資料、以及設定編輯欄位與列的網路服務方法
+                int totalPages = _rawSheet.PageLabels.Length;
+                for (int i = 0; i < totalPages; i++)
+                {
+                    int CURRENT_PAGE = i;
+                    Api.Page _rawPage = await m_apiClient.GetPageAsync(RESULT.SheetId, CURRENT_PAGE, ct);
+
+                    Page page = RESULT.Pages[CURRENT_PAGE] = new Page
                     {
-                        int CURRENT_PAGE = i;
-                        // Page
-                        API.Page _rawPage;
-                        try
-                        {
-                            _rawPage = await GetPageAsync(RESULT.SheetId, CURRENT_PAGE);
-                        }
-                        catch (Exception ex)
-                        {
-                            throw new Exception($"讀取使用者紀錄 Sheet.Page{CURRENT_PAGE} 失敗\nDetail:{ex.Message}", ex);
-                        }
-                        Page page = RESULT.Pages[CURRENT_PAGE] = new Page
-                        {
-                            RootSheet = RESULT,
-                            Index = CURRENT_PAGE,
-                            Label = _rawPage.Label,
-                            Columns = new Column[_rawPage.ColumnLabels == null ? 0 : _rawPage.ColumnLabels.Length],
-                            Rows = new SortedDictionary<int, Row>(),
-                            Cells = new(),
-                        };
-                        page.AddRow = new NetSerivceRespond<API.AddRowResponse>
+                        RootSheet = RESULT,
+                        Index = CURRENT_PAGE,
+                        Label = _rawPage.Label,
+                        Columns = new Column[_rawPage.ColumnLabels == null ? 0 : _rawPage.ColumnLabels.Length],
+                        Rows = new SortedDictionary<int, Row>(),
+                        Cells = new(),
+                    };
+                    page.AddRow = new NetSerivceRespond<Api.AddRowResponse>
+                    (
+                        requestHandler: RESULT.NetServiceHandler,
+                        func: (ct) => m_apiClient.AddPageRowAsync
                         (
-                            requestHandler: RESULT.NetServiceHandler,
-                            func: () => AddPageRowAsync
-                            (
-                                sheetId: RESULT.SheetId,
-                                page: CURRENT_PAGE
-                            ),
-                            respondFunc: respond =>
-                            {
-                                return UniTask.Create(async () =>
-                                {
-                                    //當使用者呼叫了AddRow 則+一頁
-                                    await AddRow(respond.RowIndex, 1);
-                                });
-                            }
-                        );
-                        page.AddRowAndSetCells = new NetSerivceRequestRespond<API.SetRowRequest, API.AddRowResponse>
-                        (
-                            requestHandler: RESULT.NetServiceHandler,
-                            func: (request) => AddPageRowAsync
-                            (
-                                sheetId: RESULT.SheetId,
-                                page: CURRENT_PAGE
-                            ),
-                            respondAndNewValueFunc: async tuple =>
+                            sheetId: RESULT.SheetId,
+                            page: CURRENT_PAGE,
+                            ct: ct
+                        ),
+                        respondFunc: (respond, ct) =>
+                        {
+                            return UniTask.Create(async (innerCt) =>
                             {
                                 //當使用者呼叫了AddRow 則+一頁
-                                await AddRow(tuple.respond.RowIndex, 1);
-                                int newRowIndex = tuple.respond.RowIndex;
-                                //寫入列
-                                page.Rows[newRowIndex].SetCells.Request
-                                (
-                                    value: tuple.request,
-                                    onSuccess: () => { Debug.Log("成功寫入新增列資料"); },
-                                    onFailure: (msg) => { Debug.LogError("寫入新增列資料失敗 因為:" + msg); },
-                                    onException: (ex) => { Debug.LogException(ex); }
-                                );
-                            }
-                        );
+                                await AddRow(respond.RowIndex, 1, innerCt);
+                            }, ct);
+                        }
+                    );
+                    page.AddRowAndSetCells = new NetSerivceRequestRespond<Api.SetRowRequest, Api.AddRowResponse>
+                    (
+                        requestHandler: RESULT.NetServiceHandler,
+                        func: (request, ct) => m_apiClient.AddPageRowAsync
+                        (
+                            sheetId: RESULT.SheetId,
+                            page: CURRENT_PAGE,
+                            ct: ct
+                        ),
+                        respondAndNewValueFunc: async (tuple, ct) =>
+                        {
+                            //當使用者呼叫了AddRow 則+一頁
+                            await AddRow(tuple.respond.RowIndex, 1, ct);
+                            int newRowIndex = tuple.respond.RowIndex;
+                            //寫入列
+                            page.Rows[newRowIndex].SetCells.Request
+                            (
+                                value: tuple.request,
+                                onSuccess: () => { Debug.Log("成功寫入新增列資料"); },
+                                onFailure: (msg) => { Debug.LogError("寫入新增列資料失敗 因為:" + msg); },
+                                onException: (ex) => { Debug.LogException(ex); }
+                            );
+                        }
+                    );
+                    page.ClearReadableData = new NetSerivceVoid
+                    (
+                        requestHandler: RESULT.NetServiceHandler,
+                        func: (ct) => m_apiClient.ClearPageReadableDataAsync
+                        (
+                            sheetId: RESULT.SheetId,
+                            page: CURRENT_PAGE
+                            , ct: ct
+                        ),
+                        respondFunc: (ct) =>
+                        {
+                            page.Cells.Clear();
+                            var rows = (SortedDictionary<int, Row>)page.Rows;
+                            rows.Clear();
+                            return UniTask.CompletedTask;
+                        }
+                    );
 
-                        page.ClearReadableData = new NetSerivceVoid
+                    Api.Column[] _rawColumns = await m_apiClient.GetPageColumnsAsync(RESULT.SheetId, CURRENT_PAGE, ct);
+
+                    // 處理 Column 此處不具備編輯Cell能力 並長度是固定不變的
+                    for (int j = 0; j < page.Columns.Length; j++)
+                    {
+                        Api.Column _rawColumn = _rawColumns[j];
+                        int CURRENT_COLUMN = j;
+                        FieldType TryParseFieldType(string fieldType) => Enum.TryParse(fieldType, true, out FieldType parsedFieldType) ? parsedFieldType : FieldType.String;
+                        Column column = page.Columns[CURRENT_COLUMN] = new Column
+                        {
+                            RootPage = page,
+                            Index = CURRENT_COLUMN,
+                            Label = _rawColumn.Label,
+                            IsReadOnly = _rawColumn.IsReadOnly,
+                            FieldType = TryParseFieldType(_rawColumn.FieldType),
+                        };
+                        column.Edit = new NetSerivceRequest<Api.SetColumnRequest>
                         (
                             requestHandler: RESULT.NetServiceHandler,
-                            func: () => ClearPageReadableDataAsync
+                            func: (request, ct) => m_apiClient.SetPageColumnAsync
                             (
                                 sheetId: RESULT.SheetId,
-                                page: CURRENT_PAGE
+                                page: CURRENT_PAGE,
+                                column: CURRENT_COLUMN,
+                                request: request,
+                                ct: ct
                             ),
-                            respondFunc: () =>
+                            newValueFunc: (newValue, ct) =>
                             {
-                                page.Cells.Clear();
-                                var rows = (SortedDictionary<int, Row>)page.Rows;
-                                rows.Clear();
+                                column.FieldType = TryParseFieldType(newValue.FieldType);
                                 return UniTask.CompletedTask;
                             }
                         );
+                    }
 
-                        API.Column[] _rawColumns;
-                        try
+                    // 列從1開始查找獲取 0找不到東西
+                    await AddRow(1, _rawPage.RowCount, ct);
+                    async UniTask AddRow(int start, int count, CancellationToken ct = default)
+                    {
+                        if (count == 0)
+                            return;
+
+                        List<Api.Row> _rawRows = await m_apiClient.GetPageRowsAsync(RESULT.SheetId, CURRENT_PAGE, start, count, ct);
+
+                        for (int i = 0; i < count; i++)
                         {
-                            _rawColumns = await GetPageColumnsAsync(RESULT.SheetId, CURRENT_PAGE);
+                            int CURRENT_ROW = i;
+                            GetRow(_rawRows[CURRENT_ROW], start + CURRENT_ROW);
                         }
-                        catch (Exception ex)
-                        {
-                            throw new Exception($"讀取使用者紀錄 Sheet.Page{CURRENT_PAGE}.Columns({page.Columns.Length}筆) 失敗\nDetail:{ex.Message}", ex);
-                        }
 
-                        // 處理 Column 此處不具備編輯Cell能力 並長度是固定不變的
-                        for (int j = 0; j < page.Columns.Length; j++)
+                        void GetRow(Api.Row _rawRow, int targetIndex)
                         {
-                            API.Column _rawColumn = _rawColumns[j];
-                            int CURRENT_COLUMN = j;
-
-                            FieldType TryParseFieldType(string fieldType) => Enum.TryParse(fieldType, true, out FieldType parsedFieldType) ? parsedFieldType : FieldType.String;
-                            Column column = page.Columns[CURRENT_COLUMN] = new Column
+                            Row newRow = new()
                             {
                                 RootPage = page,
-                                Index = CURRENT_COLUMN,
-                                Label = _rawColumn.Label,
-                                IsReadOnly = _rawColumn.IsReadOnly,
-                                FieldType = TryParseFieldType(_rawColumn.FieldType),
+                                Index = targetIndex,
                             };
-                            column.Edit = new NetSerivceRequest<API.SetColumnRequest>
+                            ((SortedDictionary<int, Row>)page.Rows).Add(newRow.Index, newRow);
+
+                            newRow.SetCells = new NetSerivceRequest<Api.SetRowRequest>
                             (
                                 requestHandler: RESULT.NetServiceHandler,
-                                func: request => SetPageColumnAsync
+                                func: (request, ct) => m_apiClient.SetPageRowAsync
                                 (
                                     sheetId: RESULT.SheetId,
-                                    page: CURRENT_PAGE,
-                                    column: CURRENT_COLUMN,
-                                    request: request
+                                    page: newRow.RootPage.Index,
+                                    row: newRow.Index,
+                                    request: request,
+                                    ct: ct
                                 ),
-                                newValueFunc: newValue =>
+                                newValueFunc: (newValue, ct) =>
                                 {
-                                    column.FieldType = TryParseFieldType(newValue.FieldType);
-                                    return UniTask.CompletedTask;
+                                    return UniTask.Create(async (innerCt) =>
+                                    {
+                                        int index = Mathf.Min(newValue.Cells.Length, newRow.Cells.Count);
+                                        for (int i = 0; i < index; i++)
+                                        {
+                                            var cell = newRow.Cells[i];
+                                            if (cell.IsReadOnly)
+                                                continue;
+                                            cell.Text = newValue.Cells[i];
+                                        }
+                                        await LoadCurrentPageAllColumnSummary(innerCt);
+                                        await LoadFirstPageColumnSummary(innerCt);
+                                    }, ct);
                                 }
                             );
-                        }
-
-                        // 列從1開始查找獲取 0找不到東西
-                        AddRow(1, _rawPage.RowCount).Forget();
-                        async UniTask AddRow(int start, int count)
-                        {
-                            if (count == 0)
-                                return;
-
-                            List<API.Row> _rawRows;
-                            try
+                            // 加入一筆資料
+                            List<Cell> rowCells = _rawRow.Cells.Select((x, index) => new Cell()
                             {
-                                _rawRows = await GetPageRowsAsync(RESULT.SheetId, CURRENT_PAGE, start, count);
-                            }
-                            catch (Exception ex)
-                            {
-                                throw new Exception($"讀取使用者紀錄 Sheet.Page{CURRENT_PAGE}.Rows 失敗\nDetail:{ex.Message}", ex);
-                            }
-
-                            for (int i = 0; i < count; i++)
-                            {
-                                int CURRENT_ROW = i;
-                                GetRow(_rawRows[CURRENT_ROW], start + CURRENT_ROW);
-                            }
-
-                            void GetRow(API.Row _rawRow, int targetIndex)
-                            {
-                                Row newRow = new()
-                                {
-                                    RootPage = page,
-                                    Index = targetIndex,
-                                };
-                                ((SortedDictionary<int, Row>)page.Rows).Add(newRow.Index, newRow);
-
-                                newRow.SetCells = new NetSerivceRequest<API.SetRowRequest>
-                                (
-                                    requestHandler: RESULT.NetServiceHandler,
-                                    func: request => SetPageRowAsync
-                                    (
-                                        sheetId: RESULT.SheetId,
-                                        page: newRow.RootPage.Index,
-                                        row: newRow.Index,
-                                        request: request
-                                    ),
-                                    newValueFunc: newValue =>
-                                    {
-                                        return UniTask.Create(async () =>
-                                        {
-                                            int index = Mathf.Min(newValue.Cells.Length, newRow.Cells.Count);
-                                            for (int i = 0; i < index; i++)
-                                            {
-                                                var cell = newRow.Cells[i];
-                                                if (cell.IsReadOnly)
-                                                    continue;
-                                                cell.Text = newValue.Cells[i];
-                                            }
-                                            await LoadCurrentPageAllColumnSummary();
-                                            await LoadFirstPageColumnSummary();
-                                        });
-                                    }
-                                );
-                                // 加入一筆資料
-                                List<Cell> rowCells = _rawRow.Cells.Select((x, index) => new Cell()
-                                {
-                                    Column = page.Columns.Length > index ? page.Columns[index] : null,
-                                    Row = newRow,
-                                    Text = x
-                                }).ToList();
-                                page.Cells.Add(targetIndex, rowCells);
-                            }
-                        }
-
-                        //處理欄總結
-                        if (_rawPage.RowCount > 0)
-                            await LoadCurrentPageAllColumnSummary();
-
-                        async UniTask LoadCurrentPageAllColumnSummary()
-                        {
-                            if (page.Columns.Length == 0)
-                                return;
-
-                            API.ColumnSummary[] rawColumnSummaries;
-                            try
-                            {
-                                rawColumnSummaries = await GetPageColumnsSummaryAsync
-                                (
-                                    sheetId: RESULT.SheetId,
-                                    page: CURRENT_PAGE
-                                );
-                            }
-                            catch (ErrorHandleException)
-                            {
-                                foreach (var col in page.Columns)
-                                    col.CellsSummary = string.Empty;
-
-                                return;
-                            }
-                            catch (Exception ex)
-                            {
-                                throw new Exception($"讀取使用者紀錄 Sheet.Page{CURRENT_PAGE}.Columns/Summary({page.Columns.Length}筆) 失敗\nDetail:{ex.Message}", ex);
-                            }
-
-                            if (rawColumnSummaries == null || rawColumnSummaries.Length == 0)
-                                return;
-
-                            for (int i = 0; i < page.Columns.Length; i++)
-                            {
-                                int CURRENT_COLUMN = i;
-                                API.ColumnSummary rawColumnSummary = rawColumnSummaries[i];
-                                page.Columns[CURRENT_COLUMN].CellsSummary = rawColumnSummary.Label;
-                            }
+                                Column = page.Columns.Length > index ? page.Columns[index] : null,
+                                Row = newRow,
+                                Text = x
+                            }).ToList();
+                            page.Cells.Add(targetIndex, rowCells);
                         }
                     }
-                    async UniTask LoadFirstPageColumnSummary()
-                    {
-                        Column column = RESULT.Pages[0].Columns[1];
-                        Cell[] cells = column.Cells.ToArray();
-                        foreach (var page in RESULT.Pages)
-                        {
-                            if (page.Index == 0)
-                                continue;
 
-                            cells[page.Index - 1].Text = page.Columns[0].CellsSummary;
-                        }
+                    //處理欄總結
+                    if (_rawPage.RowCount > 0)
+                        await LoadCurrentPageAllColumnSummary(ct);
+
+                    async UniTask LoadCurrentPageAllColumnSummary(CancellationToken ct = default)
+                    {
+                        if (page.Columns.Length == 0)
+                            return;
+
+                        Api.ColumnSummary[] rawColumnSummaries;
                         try
                         {
-                            API.ColumnSummary rawColumnSummary = await GetPageColumnSummaryAsync
+                            rawColumnSummaries = await m_apiClient.GetPageColumnsSummaryAsync
                             (
                                 sheetId: RESULT.SheetId,
-                                page: 0,
-                                column: 1
+                                page: CURRENT_PAGE,
+                                ct
                             );
-                            column.CellsSummary = rawColumnSummary.Label;
                         }
-                        catch (ErrorHandleException)
+                        catch (ApiException apiEx)
                         {
-                            column.CellsSummary = string.Empty;
+                            if (Logger.WarnEnabled)
+                            {
+                                Logger.Warn($"讀取使用者紀錄 Sheet.Page{CURRENT_PAGE}/Columns/Summary 失敗，可能因為該頁籤的欄位沒有設定公式或是其他原因導致無法計算總結，已將該頁籤所有欄位的總結設為空字串。");
+                                Debug.LogException(apiEx);
+                            }
+
+                            foreach (var col in page.Columns)
+                                col.CellsSummary = string.Empty;
+
+                            return;
                         }
                         catch (Exception ex)
                         {
-                            throw new Exception($"讀取使用者紀錄 Sheet.Page0.ColumnSummary 失敗\nDetail:{ex.Message}", ex);
+                            throw new Exception($"讀取使用者紀錄 Sheet.Page{CURRENT_PAGE}.Columns/Summary({page.Columns.Length}筆) 失敗\nDetail:{ex.Message}", ex);
+                        }
+
+                        if (rawColumnSummaries == null || rawColumnSummaries.Length == 0)
+                            return;
+
+                        for (int i = 0; i < page.Columns.Length; i++)
+                        {
+                            int CURRENT_COLUMN = i;
+                            Api.ColumnSummary rawColumnSummary = rawColumnSummaries[i];
+                            page.Columns[CURRENT_COLUMN].CellsSummary = rawColumnSummary.DisplayValue;
                         }
                     }
 
-                    foreach (var res in texResourceHandle)
+                    // 階段 3：分頁載入進度計算（權重從 20% 分配到 50%，共佔 30%）
+                    if (totalPages > 0)
                     {
-                        if (res.Value == null || res.Value.Count == 0)
-                            continue;
-
-                        if (string.IsNullOrWhiteSpace(res.Key))
-                            continue;
-
-                        Texture2D tex = await GetTex2D(res.Key);
-                        if (tex == null)
-                            continue;
-
-                        tex.wrapMode = TextureWrapMode.Clamp;
-
-                        foreach (var apply in res.Value)
-                            apply(tex);
-                        RESULT.ManagedObjects.Add(tex);
-                        await UniTask.Yield();
+                        float pageProgress = 0.20f + ((float)(i + 1) / totalPages) * 0.30f;
+                        process.Progress = pageProgress;
                     }
+                }
 
-                    Instance.m_loggedUserProjectRecord = RESULT;
-                    OnUserProjectRecordUpdated.InvokeSafely(Instance.m_loggedUserProjectRecord, @throw: ex => Debug.LogException(ex, "OnUserProjectRecordUpdated handler exception:"));
-                    onSuccess?.Invoke(Instance.m_loggedUserProjectRecord);
-                }
-                catch (Exception ex)
+                // 階段 4：載入首頁特定欄位總結（完成後達到 80%）
+                await LoadFirstPageColumnSummary(ct);
+                process.Progress = 0.80f;
+
+                async UniTask LoadFirstPageColumnSummary(CancellationToken ct = default)
                 {
-                    RESULT?.Dispose();
-                    OnError(ex, onError);
+                    Column column = RESULT.Pages[0].Columns[1];
+                    Cell[] cells = column.Cells.ToArray();
+                    foreach (var page in RESULT.Pages)
+                    {
+                        if (page.Index == 0)
+                            continue;
+
+                        cells[page.Index - 1].Text = page.Columns[0].CellsSummary;
+                    }
+                    try
+                    {
+                        Api.ColumnSummary rawColumnSummary = await m_apiClient.GetPageColumnSummaryAsync
+                        (
+                            sheetId: RESULT.SheetId,
+                            page: 0,
+                            column: 1,
+                            ct
+                        );
+                        column.CellsSummary = rawColumnSummary.DisplayValue;
+                    }
+                    catch (ApiSheetException apiEx)
+                    {
+                        if (Logger.WarnEnabled)
+                        {
+                            Logger.Warn($"讀取使用者紀錄 Sheet.Page0.Column1/Summary 失敗，可能因為該欄位沒有設定公式或是其他原因導致無法計算總結，已將該欄位總結設為空字串。");
+                            Debug.LogException(apiEx);
+                        }
+                        column.CellsSummary = string.Empty;
+                    }
                 }
-                finally
+
+                // 階段 5：圖片下載進度（權重從 80% 分配到 100%，共佔 20%）
+                var validResources = texResourceHandle
+                    .Where(res => !string.IsNullOrWhiteSpace(res.Key) && res.Value != null && res.Value.Count > 0)
+                    .ToList();
+
+                int totalTextures = validResources.Count;
+                int currentTextureCount = 0;
+
+                foreach (var res in validResources)
                 {
-                    IsUpdatingUserProjectRecord = false;
+                    Texture2D tex = await m_apiClient.GetTex2D(res.Key, isAbsoluteUrl: true, ct);
+                    if (tex == null)
+                        continue;
+
+                    tex.wrapMode = TextureWrapMode.Clamp;
+
+                    foreach (var apply in res.Value)
+                    {
+                        apply(tex);
+                    }
+                    RESULT.ManagedObjects.Add(tex);
+
+                    // 進度計算與更新（因為前面過濾了，totalTextures 必定 > 0）
+                    currentTextureCount++;
+                    float texProgress = 0.80f + ((float)currentTextureCount / totalTextures) * 0.20f;
+                    process.Progress = texProgress;
+
+                    await UniTask.Yield(ct);
                 }
-            });
+                #endregion
+
+                process.Status = FetchProjectSheetStatus.Success;
+                process.Data = RESULT;
+
+                // 最終完成確保報告 1.0
+                process.Progress = 1.0f;
+            }
+            catch (LearningPortfolioApiException apiEx)
+            {
+                RESULT?.Dispose();
+
+                process.ServerErrorMessage = apiEx.Message;
+                process.Exception = apiEx;
+            }
+            catch (OperationCanceledException)
+            {
+                RESULT?.Dispose();
+
+                process.Status = FetchProjectSheetStatus.ManuallyCancel;
+            }
+            catch (Exception ex)
+            {
+                RESULT?.Dispose();
+                process.Exception = ex;
+                return;
+            }
+            finally
+            {
+            }
         }
 
         private readonly List<ProjectRecordShower> m_managedProjectRecordShowers = new();
@@ -925,7 +1248,7 @@ namespace EWova.LearningPortfolio
                 return;
 
             List<ProjectRecordShower> toRemove = null;
-            bool isUploading = m_loggedUserProjectRecord.IsAnyNetSerivceRequesting;
+            bool isUploading = m_currentUserProjectSheet.IsAnyNetSerivceRequesting;
             if (isUploading)
                 m_loggedUserProjectRecordShowerUpdated = true;
 
@@ -948,7 +1271,7 @@ namespace EWova.LearningPortfolio
                 item.ShowLoadingCover = isUploading;
                 if (isDirty)
                 {
-                    InjectDataToShower(item, m_loggedUserProjectRecord);
+                    InjectDataToShower(item, m_currentUserProjectSheet);
                 }
             }
 
@@ -958,23 +1281,13 @@ namespace EWova.LearningPortfolio
                     m_managedProjectRecordShowers.Remove(item);
             }
         }
-        public static ProjectRecordShower CreateUserProjectRecordShower(RectTransform rectTransform)
-        {
-            ProjectRecordShower plane = ProjectRecordShower.InstantiatePlane(rectTransform);
-
-            if (Instance.m_loggedUserProjectRecord == null)
-                return plane;
-
-            Instance.m_managedProjectRecordShowers.Add(plane);
-            InjectDataToShower(plane, Instance.m_loggedUserProjectRecord);
-            return plane;
-        }
         private static Sprite GetSprite(Texture2D tex)
         {
             if (tex == null)
                 return null;
             return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
         }
+        private string footerText;
         private static void InjectDataToShower(ProjectRecordShower plane, UserProjectRecordSheet userProjectRecord)
         {
             plane.Clear();
@@ -1032,20 +1345,51 @@ namespace EWova.LearningPortfolio
                                 _ => TMPro.TextAlignmentOptions.Center
                             }
                         }).ToArray(),
-                        CellsSummaryLabel = _column.Cells.Any() ? (_column.CellsSummary != "0" ? _column.CellsSummary : string.Empty) : null,
+                        CellsSummaryLabel = _column.Cells.Any() ? _column.CellsSummary : null,
                     }).ToArray()
                 };
                 plane.AddPage(page.Label, content);
             }
 
-            plane.Footer.text = $"你的完成進度為 {(int)(userProjectRecord.CompletionProgress * 100f)}% ！";
+            plane.Footer.text = $"正在檢視 <color=#F80>{EWovaAuth.CurrentUser.Nickname}</color> 的學習資料！ 目前的學習完成度為 <color=#F80>{(int)(userProjectRecord.CompletionProgress * 100f)}%</color> ！";
         }
 
-        private static void OnError(Exception ex, Action<Exception> action)
+        public static bool TryLoadProjectSettings(out ProjectSettings? profile, out string errorMessage)
         {
-            if (IsLogException)
-                Debug.LogException(ex);
-            action?.Invoke(ex);
+            LearningPortfolioProfile loadedProfile = null;
+
+            if (loadedProfile == null)
+                loadedProfile = Resources.Load<LearningPortfolioProfile>("EWova/LearningPortfolioProfile");
+
+            if (loadedProfile == null)
+            {
+                errorMessage = "無法從 Resources 中載入 ProjectSettings，請確認 LearningPortfolioProfile 是否存在於 Resources 資料夾中，並且已正確設定。";
+                profile = null;
+                return false;
+            }
+            else if (!loadedProfile.ProjectSettings.IsValid(out string innerErrorMessage))
+            {
+                errorMessage = $"載入的 ProjectSettings 不符合規範: {innerErrorMessage}";
+                profile = null;
+                return false;
+            }
+            else
+            {
+                errorMessage = null;
+                profile = loadedProfile.ProjectSettings;
+                return true;
+            }
+        }
+
+        public static bool LoadProjectSettings(out string errorMessage)
+        {
+            bool result = TryLoadProjectSettings(out var proSetting, out errorMessage);
+            if (result)
+            {
+                CurrentProjectSettings = proSetting;
+                EWovaAuth.ApiKey = CurrentProjectSettings.Value.APIKey;
+            }
+            return result;
         }
     }
 }
