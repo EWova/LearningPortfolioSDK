@@ -11,12 +11,6 @@ public class Template : MonoBehaviour
     {
         // 如果需要更完整的除錯資訊，可以將 Logger 的 PrintLevel 設定為 Full，這樣會輸出更多的日誌細節，有助於開發和除錯。
         LearningPortfolio.LoggerLevel = EWova.LogLevel.Full;
-
-#if UNITY_EDITOR
-        // 在編輯器使用瀏覽器跳轉登入時不使用強制登入，方便開發測試，但在某些情況下可能還是會要求使用者重新登入。
-        // 請注意這個設定只會在 Unity 編輯器中生效，打包後的遊戲仍然會使用預設行為（ForceLogin）。
-        EWova.LearningPortfolio.Editor.LearningPortfolioEditorSettings.SkipForceLoginForBrowserAuthorization = true;
-#endif
     }
 
     public void OnEnable()
