@@ -1149,8 +1149,6 @@ namespace EWova.LearningPortfolio
                         if (page.Index == 0)
                             continue;
 
-                        if (cells.Length < page.Index)
-                            continue;
                         cells[page.Index - 1].Text = page.Columns[0].CellsSummary;
                     }
                     try
