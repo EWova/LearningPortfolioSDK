@@ -277,9 +277,6 @@ namespace EWova.LearningPortfolio
                         }
                         else
                         {
-                            if (result.Exception != null)
-                                Debug.LogException(result.Exception);
-
                             if (Logger.ErrorEnabled)
                             {
                                 bool serErr = !string.IsNullOrEmpty(result.ServerErrorMessage);
@@ -295,6 +292,9 @@ namespace EWova.LearningPortfolio
                                 }
                                 Logger.Err(str);
                             }
+
+                            if (result.Exception != null)
+                                Debug.LogException(result.Exception);
 
                             var cause = result.Status;
                             // 面向使用者的錯誤訊息

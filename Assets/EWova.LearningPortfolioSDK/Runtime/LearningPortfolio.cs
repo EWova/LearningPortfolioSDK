@@ -55,17 +55,26 @@ namespace EWova.LearningPortfolio
         [RuntimeInitializeOnLoadMethod(loadType: RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         public static void Init()
         {
-            s_instance = null;
-            OnUserLogin = null;
-            OnUserLogout = null;
-            OnUserProjectRecordUpdated = null;
-            ConnectBlocker.Clear();
-            CurrentProjectSettings = null;
             EWovaAuth = new LearningPortfolioEWovaAuth();
-
 #if UNITY_EDITOR
-            UnityEditor.EditorApplication.playModeStateChanged -= PlayModeStateChanged;
-            UnityEditor.EditorApplication.playModeStateChanged += PlayModeStateChanged;
+            Authoring.EditorDomainReleaseHelper.CleanupOneShot += () =>
+            {
+                OnUserLogin = null;
+                OnUserLogout = null;
+                OnUserProjectRecordUpdated = null;
+                CurrentProjectSettings = null;
+                ConnectBlocker.Clear();
+                if (s_instance != null)
+                {
+                    DestroyImmediate(s_instance);
+                    s_instance = null;
+                }
+                if (EWovaAuth != null)
+                {
+                    EWovaAuth.Dispose();
+                    EWovaAuth = null;
+                }
+            };
 #endif
         }
 
@@ -110,25 +119,6 @@ namespace EWova.LearningPortfolio
                 DontDestroyOnLoad(s_instance.gameObject);
             }
         }
-
-#if UNITY_EDITOR
-        private static void PlayModeStateChanged(UnityEditor.PlayModeStateChange mode)
-        {
-            if (mode == UnityEditor.PlayModeStateChange.EnteredEditMode)
-            {
-                if (s_instance != null)
-                {
-                    DestroyImmediate(s_instance);
-                    s_instance = null;
-                }
-                if (EWovaAuth != null)
-                {
-                    EWovaAuth.Dispose();
-                    EWovaAuth = null;
-                }
-            }
-        }
-#endif
 
         /// <summary>
         /// 儲存當前的 API 設定，供實例或擴充方法內部使用
@@ -396,6 +386,10 @@ namespace EWova.LearningPortfolio
 
             if (!internalProcess.IsSuccess)
             {
+                process.Exception = internalProcess.Exception;
+                process.ClientErrorMessage = internalProcess.ClientErrorMessage;
+                process.ServerErrorMessage = internalProcess.ServerErrorMessage;
+
                 // 只要連線與獲取資料失敗，則登出以確保狀態一致
                 GameObject.Destroy(instance);
                 client.Dispose();
@@ -680,13 +674,14 @@ namespace EWova.LearningPortfolio
                     else
                     {
                         if (Logger.ErrorEnabled)
-                            Logger.Err($"Fetch project sheet failed. Failure reason: {fetchProSheet.Status}");
-
-                        if (fetchProSheet.Exception != null)
-                            UnityEngine.Debug.LogException(fetchProSheet.Exception);
+                            Logger.Err($"Fetch project sheet failed. Failure reason:{fetchProSheet.Status} ClientErrMsg:{fetchProSheet.ClientErrorMessage} ServerErrMsg:{fetchProSheet.ServerErrorMessage}");
                     }
 
                     EWovaAuth.OnAuthStateChanged -= OnAuthStateChanged;
+
+                    process.Exception = fetchProSheet.Exception;
+                    process.ClientErrorMessage = fetchProSheet.ClientErrorMessage;
+                    process.ServerErrorMessage = fetchProSheet.ServerErrorMessage;
                     return;
                 }
 
@@ -740,7 +735,6 @@ namespace EWova.LearningPortfolio
                     sourceProject: m_connectedProject,
                     netServiceHandler: m_netServiceRequestHandler) // 網路服務請求，統一線程列隊處理
                 {
-
                     Owner = m_loginUserData,
 
                     UserId = _rawSheet.UserId.ToString(),
@@ -1155,6 +1149,8 @@ namespace EWova.LearningPortfolio
                         if (page.Index == 0)
                             continue;
 
+                        if (cells.Length < page.Index)
+                            continue;
                         cells[page.Index - 1].Text = page.Columns[0].CellsSummary;
                     }
                     try
@@ -1219,14 +1215,12 @@ namespace EWova.LearningPortfolio
             catch (LearningPortfolioApiException apiEx)
             {
                 RESULT?.Dispose();
-
                 process.ServerErrorMessage = apiEx.Message;
                 process.Exception = apiEx;
             }
             catch (OperationCanceledException)
             {
                 RESULT?.Dispose();
-
                 process.Status = FetchProjectSheetStatus.ManuallyCancel;
             }
             catch (Exception ex)

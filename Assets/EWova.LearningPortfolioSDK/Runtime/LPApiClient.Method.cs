@@ -472,6 +472,8 @@ namespace EWova.LearningPortfolio
 
         public ApiException SourceApiEx { get; protected set; }
 
+        public override string Message => SourceApiEx.Message;
+
         protected LearningPortfolioApiException(ApiAction action, string message, ApiException sourceApiEx = null)
             : base(message, sourceApiEx)
         {
