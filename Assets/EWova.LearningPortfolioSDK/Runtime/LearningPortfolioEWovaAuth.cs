@@ -1,8 +1,7 @@
 using EWova.Auth;
+using EWova.DeepLink;
 
 using System.Collections.Generic;
-
-using UnityEngine;
 
 namespace EWova.LearningPortfolio
 {
@@ -13,9 +12,19 @@ namespace EWova.LearningPortfolio
         {
             options.ClientId = "learning-portfolio-sdk";
             options.Scopes = new List<string> { "openid", "profile", "email", "roles", "organization", "offline_access" };
-        }), new Logger("[EWova]LPEWovaAuth ", LogLevel.Full))
+        }), deepLinkHandler: DeepLinkHandler.Default
+        , logger: new Logger("[EWova]LPEWovaAuth ", LogLevel.Full))
         { }
 
         internal string ApiKey { get; set; } = null;
+
+        public override string AppId => ProjectId;
+        internal string ProjectId { get; set; }
+
+        protected override void InternalOnAuthStateChanged(AuthState authState)
+        {
+            if (authState == AuthState.Unauthenticated)
+                ProjectId = null;
+        }
     }
 }

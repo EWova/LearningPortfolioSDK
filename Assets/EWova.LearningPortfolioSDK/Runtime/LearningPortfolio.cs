@@ -260,10 +260,10 @@ namespace EWova.LearningPortfolio
                 return;
             }
 
-            if (!AuthProvider.IsSupportAuthorizeViaDeepLink)
+            if (!EWovaAuth.IsSupportAuthorizeViaDeepLink)
             {
                 process.Status = CheckAvailabilityStatus.PlatformNotSupportLogin;
-                process.ClientErrorMessage = "當前平台不支援使用系統瀏覽器進行 DeepLink 跳轉授權，無法使用學習歷程服務。";
+                process.ClientErrorMessage = "當前環境不支援使用系統瀏覽器進行 DeepLink 跳轉授權，無法使用學習歷程服務。";
                 return;
             }
 
@@ -441,7 +441,7 @@ namespace EWova.LearningPortfolio
 
                 process.Progress = 1.0f;
                 process.Status = ConnectStatus.Success;
-
+                EWovaAuth.ProjectId = instance.m_connectedProject.Id.ToString();
                 Instance = instance;
                 OnUserLogin.InvokeSafely(Instance.m_loginUserData, onThrow: ex =>
                 {
