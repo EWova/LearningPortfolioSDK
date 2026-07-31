@@ -72,7 +72,11 @@ namespace EWova.LearningPortfolio
                 {
                     await _heartbeatProcessCompletionSource.Task;
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    if (_logger.ErrorEnabled)
+                        _logger.Err("Heartbeat loop ended with exception during dispose: " + ex);
+                }
             }
         }
 

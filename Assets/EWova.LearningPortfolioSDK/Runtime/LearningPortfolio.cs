@@ -278,10 +278,14 @@ namespace EWova.LearningPortfolio
             }
             else
             {
+                // 這個 client 僅用於檢查可用性，Connect 流程會另外建立一個新的 client，故此處必須釋放，避免資源洩漏。
+                client.Dispose();
                 process.Status = CheckAvailabilityStatus.Success;
             }
 
         }
+
+        private static bool _isConnecting = false;
 
         public static void Connect(ConnectProcess process, CancellationToken cancellationToken = default)
             => ConnectAsync(process, cancellationToken).Forget();
@@ -312,6 +316,40 @@ namespace EWova.LearningPortfolio
                 return;
             }
 
+            // 已有另一個 ConnectAsync 呼叫正在進行中，等待其完成後直接反映相同結果，
+            // 避免重複建立 LPApiClient / GameObject / 心跳迴圈導致資源洩漏。
+            if (_isConnecting)
+            {
+                await UniTask.WaitUntil(() => !_isConnecting, cancellationToken: cancellationToken);
+
+                if (Instance != null)
+                {
+                    process.Status = ConnectStatus.Success;
+                    process.Data = Instance;
+                }
+                else
+                {
+                    process.Status = ConnectStatus.UserAuthFlow;
+                    process.ClientErrorMessage = "另一個同時進行的連線流程未能成功建立連線，請重新嘗試呼叫 ConnectAsync。";
+                }
+                return;
+            }
+
+            _isConnecting = true;
+            try
+            {
+                await RunConnectFlowAsync(process, cancellationToken);
+            }
+            finally
+            {
+                _isConnecting = false;
+            }
+        }
+
+        private static async UniTask RunConnectFlowAsync(
+            ConnectProcess process,
+            CancellationToken cancellationToken)
+        {
             process.Status = ConnectStatus.CheckAvailability_DefaultSettingsLoad;
             if (!LoadProjectSettings(out string errorMsg))
             {
@@ -721,6 +759,8 @@ namespace EWova.LearningPortfolio
                 #region 1. 尋找使用者所有紀錄，並選擇第一個；若無紀錄將會自動建立一筆新的紀錄。
                 process.Progress = 0.05f;
                 List<string> FoundSheets = await m_apiClient.FindSheetsAsync(m_connectedProject.Id.ToString(), ct);
+                if (FoundSheets == null || FoundSheets.Count == 0)
+                    throw new ApiSheetException(ApiAction.FindSheets, null, $"專案 {m_connectedProject.Id} 未回傳任何使用者紀錄，無法取得學習歷程紀錄。");
                 string targetSheet = FoundSheets[0];
                 process.Progress = 0.10f;
                 #endregion
@@ -1142,6 +1182,13 @@ namespace EWova.LearningPortfolio
 
                 async UniTask LoadFirstPageColumnSummary(CancellationToken ct = default)
                 {
+                    if (RESULT.Pages.Length == 0 || RESULT.Pages[0].Columns.Length < 2)
+                    {
+                        if (Logger.WarnEnabled)
+                            Logger.Warn("首頁欄位不足兩欄（可能是頁籤設定變更），略過首頁欄位總結的計算。");
+                        return;
+                    }
+
                     Column column = RESULT.Pages[0].Columns[1];
                     Cell[] cells = column.Cells.ToArray();
                     foreach (var page in RESULT.Pages)
@@ -1183,7 +1230,21 @@ namespace EWova.LearningPortfolio
 
                 foreach (var res in validResources)
                 {
-                    Texture2D tex = await m_apiClient.GetTex2D(res.Key, isAbsoluteUrl: true, ct);
+                    Texture2D tex;
+                    try
+                    {
+                        tex = await m_apiClient.GetTex2D(res.Key, isAbsoluteUrl: true, ct);
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception ex)
+                    {
+                        if (Logger.WarnEnabled)
+                        {
+                            Logger.Warn($"下載圖示資源失敗（{res.Key}），將略過此圖示，不影響其餘學習歷程資料。");
+                            Debug.LogException(ex);
+                        }
+                        continue;
+                    }
                     if (tex == null)
                         continue;
 

@@ -59,7 +59,7 @@ namespace EWova.LearningPortfolio
                 await task;
                 onCompletion?.Invoke();
             }
-            catch (ApiException ex)
+            catch (Exception ex)
             {
                 onError?.Invoke(ex);
             }
@@ -71,7 +71,7 @@ namespace EWova.LearningPortfolio
                 var result = await task;
                 onCompletion?.Invoke(result);
             }
-            catch (ApiException ex)
+            catch (Exception ex)
             {
                 onException?.Invoke(ex);
             }
