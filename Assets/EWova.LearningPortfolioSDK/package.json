@@ -1,10 +1,10 @@
 {
   "name": "com.ewova.learningportfoliosdk",
-  "version": "2026.8.2",
+  "version": "2026.8.3",
   "displayName": "EWova.LearningPortfolioSDK",
   "description": "EWova.LearningPortfolioSDK",
   "dependencies": {
-    "com.ewova.core": "1.6.2"
+    "com.ewova.core": "1.7.0"
   },
   "samples": [
     {
