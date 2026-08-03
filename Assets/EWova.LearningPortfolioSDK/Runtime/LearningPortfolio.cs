@@ -286,6 +286,10 @@ namespace EWova.LearningPortfolio
         }
 
         private static bool _isConnecting = false;
+        /// <summary>
+        /// 目前真正在執行 RunConnectFlowAsync 的那個 process，供併發呼叫的其他 ConnectAsync 等待完成後鏡射其真實結果。
+        /// </summary>
+        private static ConnectProcess _activeConnectProcess;
 
         public static void Connect(ConnectProcess process, CancellationToken cancellationToken = default)
             => ConnectAsync(process, cancellationToken).Forget();
@@ -316,13 +320,23 @@ namespace EWova.LearningPortfolio
                 return;
             }
 
-            // 已有另一個 ConnectAsync 呼叫正在進行中，等待其完成後直接反映相同結果，
-            // 避免重複建立 LPApiClient / GameObject / 心跳迴圈導致資源洩漏。
+            // 已有另一個 ConnectAsync 呼叫正在進行中，等待其完成後直接鏡射「真正在執行連線」的那個 process 的完整結果，
+            // 避免重複建立 LPApiClient / GameObject / 心跳迴圈導致資源洩漏，也避免用 Instance 是否非 null 猜測結果而掩蓋真實的失敗原因。
             if (_isConnecting)
             {
+                ConnectProcess activeProcess = _activeConnectProcess;
+
                 await UniTask.WaitUntil(() => !_isConnecting, cancellationToken: cancellationToken);
 
-                if (Instance != null)
+                if (activeProcess != null)
+                {
+                    process.Status = activeProcess.Status;
+                    process.Data = activeProcess.Data;
+                    process.Exception = activeProcess.Exception;
+                    process.ClientErrorMessage = activeProcess.ClientErrorMessage;
+                    process.ServerErrorMessage = activeProcess.ServerErrorMessage;
+                }
+                else if (Instance != null)
                 {
                     process.Status = ConnectStatus.Success;
                     process.Data = Instance;
@@ -336,12 +350,14 @@ namespace EWova.LearningPortfolio
             }
 
             _isConnecting = true;
+            _activeConnectProcess = process;
             try
             {
                 await RunConnectFlowAsync(process, cancellationToken);
             }
             finally
             {
+                _activeConnectProcess = null;
                 _isConnecting = false;
             }
         }
