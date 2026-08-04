@@ -137,9 +137,9 @@ namespace EWova.LearningPortfolio
         /// <summary>
         /// 取得 2D 紋理（支援取消權杖機制）
         /// </summary>
-        public new UniTask<Texture2D> GetTex2D(string url, bool isAbsoluteUrl, CancellationToken ct = default)
+        public new UniTask<Texture2D> GetTex2D(string url, bool isAbsoluteUrl, IProgress<float> progress, CancellationToken ct = default)
         {
-            return base.GetTex2D(url, isAbsoluteUrl, ct);
+            return base.GetTex2D(url, isAbsoluteUrl, progress, ct);
         }
 
         #region 專案與驗證 API (Project & Verification)

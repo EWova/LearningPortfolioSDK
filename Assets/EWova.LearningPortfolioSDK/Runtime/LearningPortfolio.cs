@@ -1249,7 +1249,7 @@ namespace EWova.LearningPortfolio
                     Texture2D tex;
                     try
                     {
-                        tex = await m_apiClient.GetTex2D(res.Key, isAbsoluteUrl: true, ct);
+                        tex = await m_apiClient.GetTex2D(res.Key, isAbsoluteUrl: true, null, ct);
                     }
                     catch (OperationCanceledException) { throw; }
                     catch (Exception ex)
