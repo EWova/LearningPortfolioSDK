@@ -2,10 +2,16 @@
   "name": "com.ewova.learningportfoliosdk",
   "version": "2026.8.3",
   "displayName": "EWova.LearningPortfolioSDK",
-  "description": "EWova.LearningPortfolioSDK",
+  "description": "EWova 學習歷程",
+  "author": {
+    "name": "EWova"
+  },
   "dependencies": {
     "com.ewova.core": "1.7.0"
   },
+  "documentationUrl": "https://wiki.ewova.com/zh-tw/LearningPortfolio/2026/Tutorial",
+  "changelogUrl": "https://github.com/EWova/LearningPortfolioSDK/blob/master/Assets/EWova.LearningPortfolioSDK/changelog.md",
+  "license": "MIT",
   "samples": [
     {
       "displayName": "BasicAssets",
