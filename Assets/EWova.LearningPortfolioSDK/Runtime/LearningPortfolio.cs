@@ -818,12 +818,8 @@ namespace EWova.LearningPortfolio
                     newValueFunc: async (path, ct) =>
                     {
                         RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
-
-                        if (RESULT.ProgressCompletions.Contains(path))
-                            return;
-
-                        ((List<string>)RESULT.ProgressCompletions).Add(path);
-                        ((List<DateTime>)RESULT.ProgressCompletionsLocalDateTime).Add(DateTime.Now);
+                        Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressCompletionDic;
+                        obj.TryAdd(path, DateTime.Now);
                     }
                 );
                 RESULT.SetUnmarkIncludeNonNode = new NetSerivceRequest<string>
@@ -838,14 +834,8 @@ namespace EWova.LearningPortfolio
                     newValueFunc: async (path, ct) =>
                     {
                         RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
-
-                        int index = ((List<string>)RESULT.ProgressCompletions).IndexOf(path);
-
-                        if (index >= 0)
-                        {
-                            ((List<string>)RESULT.ProgressCompletions).RemoveAt(index);
-                            ((List<DateTime>)RESULT.ProgressCompletionsLocalDateTime).RemoveAt(index);
-                        }
+                        Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressCompletionDic;
+                        obj.Remove(path);
                     }
                 );
                 #endregion
@@ -891,11 +881,8 @@ namespace EWova.LearningPortfolio
                         respondFunc: async (ct) =>
                         {
                             RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
-                            if (RESULT.ProgressCompletions.Contains(path))
-                                return;
-
-                            ((List<string>)RESULT.ProgressCompletions).Add(path);
-                            ((List<DateTime>)RESULT.ProgressCompletionsLocalDateTime).Add(DateTime.Now);
+                            Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressCompletionDic;
+                            obj.TryAdd(path, DateTime.Now);
                         }
                     );
                     pNode.SetUnmark = new NetSerivceVoid
@@ -910,11 +897,8 @@ namespace EWova.LearningPortfolio
                         respondFunc: async (ct) =>
                         {
                             RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
-
-                            int index = ((List<string>)RESULT.ProgressCompletions).IndexOf(path);
-
-                            ((List<string>)RESULT.ProgressCompletions).RemoveAt(index);
-                            ((List<DateTime>)RESULT.ProgressCompletionsLocalDateTime).RemoveAt(index);
+                            Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressCompletionDic;
+                            obj.Remove(path);
                         }
                     );
 
@@ -945,20 +929,17 @@ namespace EWova.LearningPortfolio
 
                 if (_rawSheet.ProgressCompletions != null)
                 {
-                    var paths = new List<string>();
-                    var localTimes = new List<DateTime>();
+                    var items = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
 
                     foreach (var item in _rawSheet.ProgressCompletions)
                     {
                         if (string.IsNullOrWhiteSpace(item.Path))
                             continue;
 
-                        paths.Add(item.Path);
-                        localTimes.Add(item.DateTime.ToLocalTime());
+                        items.Add(item.Path, item.DateTime.ToLocalTime());
                     }
 
-                    RESULT.ProgressCompletions = paths;
-                    RESULT.ProgressCompletionsLocalDateTime = localTimes;
+                    RESULT.ProgressCompletionDic = items;
                 }
                 #endregion
 

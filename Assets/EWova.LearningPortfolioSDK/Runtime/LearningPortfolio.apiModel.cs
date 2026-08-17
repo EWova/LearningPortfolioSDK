@@ -138,15 +138,62 @@ namespace EWova.LearningPortfolio
             /// </summary>
             public ProgressNode ProgressNode { get; internal set; }
             /// <summary>
-            /// 已完成的進度節點路徑清單 (格式為 "根節點/子節點1/子節點2/..." )。
-            /// 請注意，此路徑可能包含不存在的 Node ID (表示該節點已被刪除但完成紀錄仍保留)
-            /// 你也可以透過這個特性使用 <c>MarkNonNodeComplete</c> 來記錄不存在的節點作為隱藏進度紀錄
+            /// 已完成的進度節點路徑清單，格式為「根節點/子節點1/子節點2/...」。
             /// </summary>
-            public IReadOnlyList<string> ProgressCompletions { get; internal set; } = new List<string>();
-            public IReadOnlyList<DateTime> ProgressCompletionsLocalDateTime { get; internal set; } = new List<DateTime>();
+            /// <remarks>
+            /// 路徑具有以下特性：
+            /// <list type="bullet">
+            /// <item>
+            /// <description>
+            /// 路徑不分大小寫。
+            /// </description>
+            /// </item>
+            /// <item>
+            /// <description>
+            /// 路徑可能包含不存在的 Node ID，表示該節點已被刪除，但其完成紀錄仍會保留。
+            /// </description>
+            /// </item>
+            /// <item>
+            /// <description>
+            /// 可透過 <c>MarkNonNodeComplete</c> 記錄不存在的節點，作為隱藏的進度紀錄。
+            /// </description>
+            /// </item>
+            /// <item>
+            /// <description>
+            /// 字典的 Value 為本地時間。
+            /// </description>
+            /// </item>
+            /// </list>
+            /// </remarks>
+            /// <value>
+            /// Key 為已完成節點的路徑；Value 為該路徑的完成時間。
+            /// </value>
+            public IReadOnlyDictionary<string, DateTime> ProgressCompletionDic { get; internal set; }
+                = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+
+            [Obsolete("已棄用，請使用 ProgressCompletionDic")]
+            public IReadOnlyList<string> ProgressCompletions => ProgressCompletionDic.Keys.ToList();
+            [Obsolete("已棄用，請使用 ProgressCompletionDic")]
+            public IReadOnlyList<DateTime> ProgressCompletionsLocalDateTime => ProgressCompletionDic.Values.ToList();
+
             /// <summary>
-            /// 所有進度節點的路徑對照表 (格式為 "根節點/子節點1/子節點2/..." => ProgressNode ) key: StringComparer.OrdinalIgnoreCase
+            /// 已完成的進度節點路徑清單，格式為「根節點/子節點1/子節點2/...」。
             /// </summary>
+            /// <remarks>
+            /// 路徑具有以下特性：
+            /// <list type="bullet">
+            /// <item>
+            /// <description>
+            /// 路徑不分大小寫。
+            /// </description>
+            /// </item>
+            /// <item>
+            /// <description>
+            /// 這個物件存放的路徑必定是後台存在的 Node ID
+            /// </description>
+            /// </item>
+            /// </list>
+            /// </remarks>
             public IReadOnlyDictionary<string, ProgressNode> AllProgressNodesPathMap { get; internal set; }
             /// <summary>
             /// 所有進度節點
@@ -271,20 +318,11 @@ namespace EWova.LearningPortfolio
             /// <summary>
             /// 是否自己被標記為已完成
             /// </summary>
-            public bool IsCompletedSelf => RootSheet.ProgressCompletions.Contains(Path, StringComparer.OrdinalIgnoreCase);
+            public bool IsCompletedSelf => RootSheet.ProgressCompletionDic.ContainsKey(Path);
             /// <summary>
             /// 自己被標記為已完成的時間 (本地時間)
             /// </summary>
-            public DateTime? CompleteTime
-            {
-                get
-                {
-                    int index = ((List<string>)RootSheet.ProgressCompletions).IndexOf(Path);
-                    if (index < 0)
-                        return null;
-                    return RootSheet.ProgressCompletionsLocalDateTime[index];
-                }
-            }
+            public DateTime? CompleteTime => RootSheet.ProgressCompletionDic.TryGetValue(Path, out var result) ? result : (DateTime?)null;
             /// <summary>
             /// 是否子節點被標記為已完成 (自己未完成且子節點有一個以上被標記為已完成即為完成)
             /// </summary>

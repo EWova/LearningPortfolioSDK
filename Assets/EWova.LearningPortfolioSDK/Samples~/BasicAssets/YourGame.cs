@@ -82,11 +82,11 @@ namespace EWova.LearningPortfolio.BasicAssets
             }
 
             // [讀] 已完成的進度路徑與完成時間
-            for (int i = 0; i < Sheet.ProgressCompletions.Count; i++)
+            foreach (var kvp in Sheet.ProgressCompletionDic)
             {
-                string completionPath = Sheet.ProgressCompletions[i];
-                DateTime completionDate = Sheet.ProgressCompletionsLocalDateTime[i];
-                Debug.LogError($"完成進度 {completionPath} 完成於 {completionDate}");
+                string completionPath = kvp.Key;
+                DateTime completionLocalDateTime = kvp.Value;
+                Debug.LogError($"完成進度 {completionPath} 完成於 {completionLocalDateTime}");
             }
 
             // [寫] 標記已知進度路徑為完成 這會使對應的進度節點更新 (如果節點存在的話)

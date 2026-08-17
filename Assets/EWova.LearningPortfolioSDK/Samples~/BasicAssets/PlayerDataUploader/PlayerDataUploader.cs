@@ -185,11 +185,8 @@ namespace EWova.LearningPortfolio.BasicAssets
 
             var Sheet = LearningPortfolio.LoggedUserProjectRecordSheet;
 
-            // 目前完成的所有路徑
-            IReadOnlyList<string> allCompletePath = Sheet.ProgressCompletions;
-
             // 移除所有完成進度
-            foreach (var path in allCompletePath)
+            foreach (var path in Sheet.ProgressCompletionDic.Keys)
             {
                 Sheet.SetUnmarkIncludeNonNode.Request
                 (
