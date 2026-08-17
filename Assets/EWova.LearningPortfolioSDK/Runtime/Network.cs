@@ -120,61 +120,49 @@ namespace EWova.LearningPortfolio
     {
         Success,
         Failed,
-        Exception
     }
     public readonly struct NetServiceAsyncRespond
     {
-        public string ErrorMessage { get; }
-        public Exception Exception { get; }
+        public readonly AsyncRespondStatus Status;
+        public readonly LearningPortfolioApiException LearningPortfolioApiException;
+        public readonly string ErrorMessage => LearningPortfolioApiException?.Message ?? string.Empty;
         public bool IsSuccess => Status == AsyncRespondStatus.Success;
         public bool IsFailed => Status == AsyncRespondStatus.Failed;
-        public bool IsException => Status == AsyncRespondStatus.Exception;
-        public readonly AsyncRespondStatus Status;
 
-        private NetServiceAsyncRespond(string errorMessage, Exception exception, AsyncRespondStatus status)
+        private NetServiceAsyncRespond(
+            AsyncRespondStatus status,
+            LearningPortfolioApiException learningPortfolioApiException)
         {
-            ErrorMessage = errorMessage;
-            Exception = exception;
             Status = status;
+            LearningPortfolioApiException = learningPortfolioApiException;
         }
 
         public static NetServiceAsyncRespond ResultSuccess()
-            => new NetServiceAsyncRespond(null, null, AsyncRespondStatus.Success);
-
-        public static NetServiceAsyncRespond ResultFailed(string errorMessage, Exception handleEx)
-            => new NetServiceAsyncRespond(errorMessage, handleEx, AsyncRespondStatus.Failed);
-
-        public static NetServiceAsyncRespond ResultException(Exception ex)
-            => new NetServiceAsyncRespond(null, ex, AsyncRespondStatus.Exception);
+            => new(AsyncRespondStatus.Success, null);
+        public static NetServiceAsyncRespond ResultFailed(LearningPortfolioApiException learningPortfolioApiException = null)
+            => new(AsyncRespondStatus.Failed, learningPortfolioApiException);
     }
-    public readonly struct NetServiceAsyncRespond<T>
+    public readonly struct NetServiceAsyncRespond<T> where T : class
     {
-        public T Data { get; }
-        public string ErrorMessage { get; }
-        public Exception Exception { get; }
+        public readonly T Data;
+        public readonly AsyncRespondStatus Status;
+        public readonly LearningPortfolioApiException LearningPortfolioApiException;
+        public readonly string ErrorMessage => LearningPortfolioApiException?.Message ?? string.Empty;
 
         public bool IsSuccess => Status == AsyncRespondStatus.Success;
         public bool IsFailed => Status == AsyncRespondStatus.Failed;
-        public bool IsException => Status == AsyncRespondStatus.Exception;
 
-        public readonly AsyncRespondStatus Status;
-
-        private NetServiceAsyncRespond(T data, string errorMessage, Exception exception, AsyncRespondStatus status)
+        private NetServiceAsyncRespond(T data, AsyncRespondStatus status, LearningPortfolioApiException learningPortfolioApiException)
         {
             Data = data;
-            ErrorMessage = errorMessage;
-            Exception = exception;
             Status = status;
+            LearningPortfolioApiException = learningPortfolioApiException;
         }
 
         public static NetServiceAsyncRespond<T> ResultSuccess(T data)
-            => new NetServiceAsyncRespond<T>(data, null, null, AsyncRespondStatus.Success);
-
-        public static NetServiceAsyncRespond<T> ResultFailed(string errorMessage, Exception handleEx)
-            => new NetServiceAsyncRespond<T>(default, errorMessage, handleEx, AsyncRespondStatus.Failed);
-
-        public static NetServiceAsyncRespond<T> ResultException(Exception ex)
-            => new NetServiceAsyncRespond<T>(default, null, ex, AsyncRespondStatus.Exception);
+            => new(data, AsyncRespondStatus.Success, null);
+        public static NetServiceAsyncRespond<T> ResultFailed(LearningPortfolioApiException learningPortfolioApiException)
+            => new(null, AsyncRespondStatus.Failed, learningPortfolioApiException);
     }
 
     public abstract class NetSerivceBase
@@ -210,15 +198,7 @@ namespace EWova.LearningPortfolio
             }
             catch (LearningPortfolioApiException ex)
             {
-                return NetServiceAsyncRespond.ResultFailed(ex.Message, ex);
-            }
-            catch (OperationCanceledException ex)
-            {
-                return NetServiceAsyncRespond.ResultFailed("Operation was canceled.", ex);
-            }
-            catch (Exception ex)
-            {
-                return NetServiceAsyncRespond.ResultException(ex);
+                return NetServiceAsyncRespond.ResultFailed(ex);
             }
         }
 
@@ -240,14 +220,23 @@ namespace EWova.LearningPortfolio
         {
             RequestHandler.Queue(async (ct) =>
             {
-                var result = await RunAsync(ct);
+                try
+                {
+                    var result = await RunAsync(ct);
 
-                if (result.IsSuccess)
-                    onSuccess?.Invoke();
-                else if (result.IsFailed)
-                    onFailure?.Invoke(result.ErrorMessage);
-                else if (result.IsException)
-                    onException?.Invoke(result.Exception);
+                    if (result.IsSuccess)
+                        onSuccess?.Invoke();
+                    else
+                        onFailure?.Invoke(result.ErrorMessage);
+                }
+                catch (OperationCanceledException)
+                {
+                    onFailure?.Invoke("Request was canceled.");
+                }
+                catch (Exception ex)
+                {
+                    onException?.Invoke(ex);
+                }
             });
         }
     }
@@ -274,15 +263,7 @@ namespace EWova.LearningPortfolio
             }
             catch (LearningPortfolioApiException ex)
             {
-                return NetServiceAsyncRespond.ResultFailed(ex.Message, ex);
-            }
-            catch (OperationCanceledException ex)
-            {
-                return NetServiceAsyncRespond.ResultFailed("Operation was canceled.", ex);
-            }
-            catch (Exception ex)
-            {
-                return NetServiceAsyncRespond.ResultException(ex);
+                return NetServiceAsyncRespond.ResultFailed(ex);
             }
         }
 
@@ -305,19 +286,28 @@ namespace EWova.LearningPortfolio
         {
             RequestHandler.Queue(async (ct) =>
             {
-                var result = await RunAsync(value, ct);
+                try
+                {
+                    var result = await RunAsync(value, ct);
 
-                if (result.IsSuccess)
-                    onSuccess?.Invoke();
-                else if (result.IsFailed)
-                    onFailure?.Invoke(result.ErrorMessage);
-                else if (result.IsException)
-                    onException?.Invoke(result.Exception);
+                    if (result.IsSuccess)
+                        onSuccess?.Invoke();
+                    else
+                        onFailure?.Invoke(result.ErrorMessage);
+                }
+                catch (OperationCanceledException)
+                {
+                    onFailure?.Invoke("Request was canceled.");
+                }
+                catch (Exception ex)
+                {
+                    onException?.Invoke(ex);
+                }
             });
         }
 
     }
-    public class NetSerivceRespond<TRespond> : NetSerivceBase
+    public class NetSerivceRespond<TRespond> : NetSerivceBase where TRespond : class
     {
         public NetSerivceRespond(NetServiceRequestHandler requestHandler, Func<CancellationToken, UniTask<TRespond>> func, Func<TRespond, CancellationToken, UniTask> respondFunc) : base(requestHandler)
         {
@@ -340,15 +330,7 @@ namespace EWova.LearningPortfolio
             }
             catch (LearningPortfolioApiException ex)
             {
-                return NetServiceAsyncRespond<TRespond>.ResultFailed(ex.Message, ex);
-            }
-            catch (OperationCanceledException ex)
-            {
-                return NetServiceAsyncRespond<TRespond>.ResultFailed("Operation was canceled.", ex);
-            }
-            catch (Exception ex)
-            {
-                return NetServiceAsyncRespond<TRespond>.ResultException(ex);
+                return NetServiceAsyncRespond<TRespond>.ResultFailed(ex);
             }
         }
 
@@ -370,19 +352,28 @@ namespace EWova.LearningPortfolio
         {
             RequestHandler.Queue(async (ct) =>
             {
-                var result = await RunAsync(ct);
+                try
+                {
+                    var result = await RunAsync(ct);
 
-                if (result.IsSuccess)
-                    onSuccess?.Invoke(result.Data);
-                else if (result.IsFailed)
-                    onFailure?.Invoke(result.ErrorMessage);
-                else if (result.IsException)
-                    onException?.Invoke(result.Exception);
+                    if (result.IsSuccess)
+                        onSuccess?.Invoke(result.Data);
+                    else
+                        onFailure?.Invoke(result.ErrorMessage);
+                }
+                catch (OperationCanceledException)
+                {
+                    onFailure?.Invoke("Request was canceled.");
+                }
+                catch (Exception ex)
+                {
+                    onException?.Invoke(ex);
+                }
             });
         }
 
     }
-    public class NetSerivceRequestRespond<TRequest, TRespond> : NetSerivceBase
+    public class NetSerivceRequestRespond<TRequest, TRespond> : NetSerivceBase where TRespond : class
     {
         public NetSerivceRequestRespond(NetServiceRequestHandler requestHandler, Func<TRequest, CancellationToken, UniTask<TRespond>> func, Func<(TRequest request, TRespond respond), CancellationToken, UniTask> respondAndNewValueFunc) : base(requestHandler)
         {
@@ -404,15 +395,7 @@ namespace EWova.LearningPortfolio
             }
             catch (LearningPortfolioApiException ex)
             {
-                return NetServiceAsyncRespond<TRespond>.ResultFailed(ex.Message, ex);
-            }
-            catch (OperationCanceledException ex)
-            {
-                return NetServiceAsyncRespond<TRespond>.ResultFailed("Operation was canceled.", ex);
-            }
-            catch (Exception ex)
-            {
-                return NetServiceAsyncRespond<TRespond>.ResultException(ex);
+                return NetServiceAsyncRespond<TRespond>.ResultFailed(ex);
             }
         }
 
@@ -435,14 +418,23 @@ namespace EWova.LearningPortfolio
         {
             RequestHandler.Queue(async (ct) =>
             {
-                var result = await RunAsync(value, ct);
+                try
+                {
+                    var result = await RunAsync(value, ct);
 
-                if (result.IsSuccess)
-                    onSuccess?.Invoke(result.Data);
-                else if (result.IsFailed)
-                    onFailure?.Invoke(result.ErrorMessage);
-                else if (result.IsException)
-                    onException?.Invoke(result.Exception);
+                    if (result.IsSuccess)
+                        onSuccess?.Invoke(result.Data);
+                    else
+                        onFailure?.Invoke(result.ErrorMessage);
+                }
+                catch (OperationCanceledException)
+                {
+                    onFailure?.Invoke("Request was canceled.");
+                }
+                catch (Exception ex)
+                {
+                    onException?.Invoke(ex);
+                }
             });
         }
     }
