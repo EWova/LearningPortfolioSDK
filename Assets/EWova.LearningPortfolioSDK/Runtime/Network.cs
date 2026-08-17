@@ -1,198 +1,190 @@
+using Cysharp.Threading.Tasks;
+
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 using UnityEngine;
 
-using Cysharp.Threading.Tasks;
-using System.Threading;
-
 namespace EWova.LearningPortfolio
 {
-    public class NetServiceRequestHandler : IDisposable
+    public sealed class NetServiceRequestHandler : IDisposable
     {
-        private readonly Queue<Func<CancellationToken, UniTask>> m_queue = new();
-        private bool m_processing = false;
-        public int PendingCount { get; private set; } = 0;
+        private readonly struct WorkItem
+        {
+            public readonly Func<CancellationToken, UniTask> Run;
+            public readonly Action Cancel;
 
-        private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+            public WorkItem(Func<CancellationToken, UniTask> run, Action cancel)
+            {
+                Run = run;
+                Cancel = cancel;
+            }
+        }
 
+        private readonly Queue<WorkItem> m_queue = new();
+        private bool m_processing;
+        private CancellationTokenSource m_cts = new();
+
+        public int PendingCount => m_queue.Count;
         public bool IsAnyNetSerivceRequesting => m_processing;
 
-        internal void Queue(Func<CancellationToken, UniTask> request)
+        internal UniTask<T> EnqueueAsync<T>(Func<CancellationToken, UniTask<T>> run, CancellationToken externalToken)
         {
-            bool startProcessing = false;
+            var tcs = new UniTaskCompletionSource<T>();
 
-            m_queue.Enqueue(request);
-            PendingCount = m_queue.Count;
+            void CancelTcs() => tcs.TrySetCanceled(externalToken);
+
+            Enqueue(async handlerToken =>
+            {
+                try
+                {
+                    using var linked = CancellationTokenSource.CreateLinkedTokenSource(handlerToken, externalToken);
+                    var result = await run(linked.Token);
+                    tcs.TrySetResult(result);
+                }
+                catch (OperationCanceledException)
+                {
+                    CancelTcs();
+                }
+                catch (Exception ex)
+                {
+                    tcs.TrySetException(ex);
+                }
+            }, onCanceled: CancelTcs);
+
+            return tcs.Task;
+        }
+
+        private void Enqueue(Func<CancellationToken, UniTask> run, Action onCanceled)
+        {
+            m_queue.Enqueue(new WorkItem(run, onCanceled));
             if (!m_processing)
             {
                 m_processing = true;
-                startProcessing = true;
-            }
-
-            if (startProcessing)
-            {
                 _ = ProcessAsync();
             }
         }
 
         private async UniTaskVoid ProcessAsync()
         {
-            while (true)
+            while (m_queue.Count > 0)
             {
-                Func<CancellationToken, UniTask> req = null;
-                CancellationToken token;
-
-                if (_cancellationTokenSource.IsCancellationRequested)
+                if (m_cts.IsCancellationRequested)
                 {
-                    ClearQueueWithCancel();
+                    DrainWithCancel();
                     return;
                 }
 
-                if (m_queue.Count == 0)
-                {
-                    m_processing = false;
-                    PendingCount = 0;
-                    return;
-                }
-                req = m_queue.Dequeue();
-                PendingCount = m_queue.Count;
-
-                // 取得當前的 Token
-                token = _cancellationTokenSource.Token;
-
-                try
-                {
-                    // 同時使用 SuppressCancellationThrow() 避免拋出 OperationCanceledException 導致 ProcessAsync 異常中斷
-                    bool isCanceled = await req(token).SuppressCancellationThrow();
-                    await UniTask.Yield();
-
-                    if (isCanceled || token.IsCancellationRequested)
-                    {
-                        ClearQueueWithCancel();
-                        return;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // 處理非取消引發的其他未知異常，避免整個佇列卡死
-                    Debug.LogException(ex);
-                }
+                var item = m_queue.Dequeue();
+                await item.Run(m_cts.Token);
             }
+
+            m_processing = false;
         }
 
-        /// <summary>
-        /// 呼叫此方法來取消當前正在進行與排隊中的所有請求
-        /// </summary>
         public void CancelAll()
         {
-            _cancellationTokenSource.Cancel();
-            _cancellationTokenSource.Dispose();
-            _cancellationTokenSource = new CancellationTokenSource();
+            var old = m_cts;
+            m_cts = new CancellationTokenSource();
+            old.Cancel();
+            old.Dispose();
 
-            // 如果當前沒有在處理中，直接清空佇列
             if (!m_processing)
-            {
-                m_queue.Clear();
-                PendingCount = 0;
-            }
+                DrainWithCancel();
         }
 
-        private void ClearQueueWithCancel()
+        private void DrainWithCancel()
         {
-            m_queue.Clear();
+            while (m_queue.Count > 0)
+            {
+                var item = m_queue.Dequeue();
+                try { item.Cancel(); }
+                catch (Exception ex) { Debug.LogException(ex); }
+            }
             m_processing = false;
-            PendingCount = 0;
         }
 
         public void Dispose()
         {
-            if (_cancellationTokenSource != null)
-            {
-                _cancellationTokenSource.Cancel();
-                _cancellationTokenSource.Dispose();
-                _cancellationTokenSource = null;
-            }
-            m_queue.Clear();
+            m_cts.Cancel();
+            m_cts.Dispose();
+            DrainWithCancel();
         }
     }
-    public enum AsyncRespondStatus
-    {
-        Success,
-        Failed,
-    }
+
+    public enum AsyncRespondStatus { Success, Failed }
+
     public readonly struct NetServiceAsyncRespond
     {
         public readonly AsyncRespondStatus Status;
         public readonly LearningPortfolioApiException LearningPortfolioApiException;
-        public readonly string ErrorMessage => LearningPortfolioApiException?.Message ?? string.Empty;
+        public string ErrorMessage => LearningPortfolioApiException?.Message ?? string.Empty;
         public bool IsSuccess => Status == AsyncRespondStatus.Success;
         public bool IsFailed => Status == AsyncRespondStatus.Failed;
 
-        private NetServiceAsyncRespond(
-            AsyncRespondStatus status,
-            LearningPortfolioApiException learningPortfolioApiException)
+        internal NetServiceAsyncRespond(AsyncRespondStatus status, LearningPortfolioApiException ex)
         {
             Status = status;
-            LearningPortfolioApiException = learningPortfolioApiException;
+            LearningPortfolioApiException = ex;
         }
 
-        public static NetServiceAsyncRespond ResultSuccess()
-            => new(AsyncRespondStatus.Success, null);
-        public static NetServiceAsyncRespond ResultFailed(LearningPortfolioApiException learningPortfolioApiException = null)
-            => new(AsyncRespondStatus.Failed, learningPortfolioApiException);
+        public static NetServiceAsyncRespond ResultSuccess() => new(AsyncRespondStatus.Success, null);
+        public static NetServiceAsyncRespond ResultFailed(LearningPortfolioApiException ex) => new(AsyncRespondStatus.Failed, ex);
     }
-    public readonly struct NetServiceAsyncRespond<T> where T : class
+
+    public readonly struct NetServiceAsyncRespond<T>
     {
         public readonly T Data;
         public readonly AsyncRespondStatus Status;
         public readonly LearningPortfolioApiException LearningPortfolioApiException;
-        public readonly string ErrorMessage => LearningPortfolioApiException?.Message ?? string.Empty;
-
+        public string ErrorMessage => LearningPortfolioApiException?.Message ?? string.Empty;
         public bool IsSuccess => Status == AsyncRespondStatus.Success;
         public bool IsFailed => Status == AsyncRespondStatus.Failed;
 
-        private NetServiceAsyncRespond(T data, AsyncRespondStatus status, LearningPortfolioApiException learningPortfolioApiException)
+        internal NetServiceAsyncRespond(T data, AsyncRespondStatus status, LearningPortfolioApiException ex)
         {
             Data = data;
             Status = status;
-            LearningPortfolioApiException = learningPortfolioApiException;
+            LearningPortfolioApiException = ex;
         }
 
-        public static NetServiceAsyncRespond<T> ResultSuccess(T data)
-            => new(data, AsyncRespondStatus.Success, null);
-        public static NetServiceAsyncRespond<T> ResultFailed(LearningPortfolioApiException learningPortfolioApiException)
-            => new(null, AsyncRespondStatus.Failed, learningPortfolioApiException);
+        public static NetServiceAsyncRespond<T> ResultSuccess(T data) => new(data, AsyncRespondStatus.Success, null);
+        public static NetServiceAsyncRespond<T> ResultFailed(LearningPortfolioApiException ex) => new(default, AsyncRespondStatus.Failed, ex);
     }
 
     public abstract class NetSerivceBase
     {
-        public NetSerivceBase(NetServiceRequestHandler requestHandler)
+        protected NetSerivceBase(NetServiceRequestHandler requestHandler)
         {
             RequestHandler = requestHandler ?? throw new ArgumentNullException(nameof(requestHandler));
         }
-        internal NetServiceRequestHandler RequestHandler;
+        internal readonly NetServiceRequestHandler RequestHandler;
     }
-    public class NetSerivceVoid : NetSerivceBase
-    {
-        internal readonly Func<CancellationToken, UniTask> m_func;
-        internal readonly Func<CancellationToken, UniTask> m_respondFunc;
 
-        public NetSerivceVoid(NetServiceRequestHandler requestHandler, Func<CancellationToken, UniTask> func, Func<CancellationToken, UniTask> respondFunc = null)
+    public class NetServiceCommand<TRequest> : NetSerivceBase
+    {
+        private readonly Func<TRequest, CancellationToken, UniTask> m_func;
+        private readonly Func<TRequest, CancellationToken, UniTask> m_onDone;
+
+        public NetServiceCommand(
+            NetServiceRequestHandler requestHandler,
+            Func<TRequest, CancellationToken, UniTask> func,
+            Func<TRequest, CancellationToken, UniTask> onRespond = null)
             : base(requestHandler)
         {
             m_func = func ?? throw new ArgumentNullException(nameof(func));
-            m_respondFunc = respondFunc;
+            m_onDone = onRespond;
         }
 
-        private async UniTask<NetServiceAsyncRespond> RunAsync(CancellationToken ct)
+        private async UniTask<NetServiceAsyncRespond> RunAsync(TRequest request, CancellationToken ct)
         {
             try
             {
-                await m_func(ct);
+                await m_func(request, ct);
 
-                if (m_respondFunc != null)
-                    await m_respondFunc(ct);
+                if (m_onDone != null)
+                    await m_onDone(request, ct);
 
                 return NetServiceAsyncRespond.ResultSuccess();
             }
@@ -202,129 +194,57 @@ namespace EWova.LearningPortfolio
             }
         }
 
-        public UniTask<NetServiceAsyncRespond> RequestAsync()
-        {
-            var tcs = new UniTaskCompletionSource<NetServiceAsyncRespond>();
-            RequestHandler.Queue(async (ct) =>
-            {
-                var result = await RunAsync(ct);
-                tcs.TrySetResult(result);
-            });
-            return tcs.Task;
-        }
+        public UniTask<NetServiceAsyncRespond> RequestAsync(TRequest request, CancellationToken cancellationToken = default)
+            => RequestHandler.EnqueueAsync(token => RunAsync(request, token), cancellationToken);
 
         public void Request(
+            TRequest request,
             Action onSuccess,
             Action<string> onFailure,
-            Action<Exception> onException = null)
+            Action<Exception> onException = null,
+            CancellationToken cancellationToken = default)
         {
-            RequestHandler.Queue(async (ct) =>
-            {
-                try
+            RequestAsync(request, cancellationToken)
+                .ContinueWith(result =>
                 {
-                    var result = await RunAsync(ct);
-
                     if (result.IsSuccess)
                         onSuccess?.Invoke();
                     else
                         onFailure?.Invoke(result.ErrorMessage);
-                }
-                catch (OperationCanceledException)
+                })
+                .Forget(ex =>
                 {
-                    onFailure?.Invoke("Request was canceled.");
-                }
-                catch (Exception ex)
-                {
-                    onException?.Invoke(ex);
-                }
-            });
-        }
-    }
-    public class NetSerivceRequest<TRequest> : NetSerivceBase
-    {
-        public NetSerivceRequest(NetServiceRequestHandler requestHandler, Func<TRequest, CancellationToken, UniTask> func, Func<TRequest, CancellationToken, UniTask> newValueFunc) : base(requestHandler)
-        {
-            m_func = func ?? throw new ArgumentNullException(nameof(func));
-            m_newValueFunc = newValueFunc;
-        }
-        internal readonly Func<TRequest, CancellationToken, UniTask> m_func;
-        internal readonly Func<TRequest, CancellationToken, UniTask> m_newValueFunc;
-
-        private async UniTask<NetServiceAsyncRespond> RunAsync(TRequest value, CancellationToken ct)
-        {
-            try
-            {
-                await m_func(value, ct);
-
-                if (m_newValueFunc != null)
-                    await m_newValueFunc(value, ct);
-
-                return NetServiceAsyncRespond.ResultSuccess();
-            }
-            catch (LearningPortfolioApiException ex)
-            {
-                return NetServiceAsyncRespond.ResultFailed(ex);
-            }
-        }
-
-        public UniTask<NetServiceAsyncRespond> RequestAsync(TRequest value)
-        {
-            var tcs = new UniTaskCompletionSource<NetServiceAsyncRespond>();
-            RequestHandler.Queue(async (ct) =>
-            {
-                var result = await RunAsync(value, ct);
-                tcs.TrySetResult(result);
-            });
-            return tcs.Task;
-        }
-
-        public void Request(
-            TRequest value,
-            Action onSuccess,
-            Action<string> onFailure,
-            Action<Exception> onException = null)
-        {
-            RequestHandler.Queue(async (ct) =>
-            {
-                try
-                {
-                    var result = await RunAsync(value, ct);
-
-                    if (result.IsSuccess)
-                        onSuccess?.Invoke();
+                    if (ex is OperationCanceledException)
+                        onFailure?.Invoke("Request was canceled.");
                     else
-                        onFailure?.Invoke(result.ErrorMessage);
-                }
-                catch (OperationCanceledException)
-                {
-                    onFailure?.Invoke("Request was canceled.");
-                }
-                catch (Exception ex)
-                {
-                    onException?.Invoke(ex);
-                }
-            });
+                        onException?.Invoke(ex);
+                });
         }
-
     }
-    public class NetSerivceRespond<TRespond> : NetSerivceBase where TRespond : class
+
+    public class NetService<TRequest, TRespond> : NetSerivceBase
     {
-        public NetSerivceRespond(NetServiceRequestHandler requestHandler, Func<CancellationToken, UniTask<TRespond>> func, Func<TRespond, CancellationToken, UniTask> respondFunc) : base(requestHandler)
+        private readonly Func<TRequest, CancellationToken, UniTask<TRespond>> m_func;
+        private readonly Func<(TRequest Request, TRespond Respond), CancellationToken, UniTask> m_onRespond;
+
+        public NetService(
+            NetServiceRequestHandler requestHandler,
+            Func<TRequest, CancellationToken, UniTask<TRespond>> func,
+            Func<(TRequest Request, TRespond Respond), CancellationToken, UniTask> onRespond = null)
+            : base(requestHandler)
         {
             m_func = func ?? throw new ArgumentNullException(nameof(func));
-            m_respondFunc = respondFunc;
+            m_onRespond = onRespond;
         }
-        internal readonly Func<CancellationToken, UniTask<TRespond>> m_func;
-        internal readonly Func<TRespond, CancellationToken, UniTask> m_respondFunc;
 
-        private async UniTask<NetServiceAsyncRespond<TRespond>> RunAsync(CancellationToken ct)
+        private async UniTask<NetServiceAsyncRespond<TRespond>> RunAsync(TRequest request, CancellationToken ct)
         {
             try
             {
-                TRespond respond = await m_func(ct);
+                var respond = await m_func(request, ct);
 
-                if (m_respondFunc != null)
-                    await m_respondFunc(respond, ct);
+                if (m_onRespond != null)
+                    await m_onRespond((request, respond), ct);
 
                 return NetServiceAsyncRespond<TRespond>.ResultSuccess(respond);
             }
@@ -334,108 +254,82 @@ namespace EWova.LearningPortfolio
             }
         }
 
-        public UniTask<NetServiceAsyncRespond<TRespond>> RequestAsync()
-        {
-            var tcs = new UniTaskCompletionSource<NetServiceAsyncRespond<TRespond>>();
-            RequestHandler.Queue(async (ct) =>
-            {
-                var result = await RunAsync(ct);
-                tcs.TrySetResult(result);
-            });
-            return tcs.Task;
-        }
+        public UniTask<NetServiceAsyncRespond<TRespond>> RequestAsync(TRequest request, CancellationToken cancellationToken = default)
+            => RequestHandler.EnqueueAsync(token => RunAsync(request, token), cancellationToken);
 
         public void Request(
+            TRequest request,
             Action<TRespond> onSuccess,
             Action<string> onFailure,
-            Action<Exception> onException = null)
+            Action<Exception> onException = null,
+            CancellationToken cancellationToken = default)
         {
-            RequestHandler.Queue(async (ct) =>
-            {
-                try
+            RequestAsync(request, cancellationToken)
+                .ContinueWith(result =>
                 {
-                    var result = await RunAsync(ct);
-
                     if (result.IsSuccess)
                         onSuccess?.Invoke(result.Data);
                     else
                         onFailure?.Invoke(result.ErrorMessage);
-                }
-                catch (OperationCanceledException)
+                })
+                .Forget(ex =>
                 {
-                    onFailure?.Invoke("Request was canceled.");
-                }
-                catch (Exception ex)
-                {
-                    onException?.Invoke(ex);
-                }
-            });
+                    if (ex is OperationCanceledException)
+                        onFailure?.Invoke("Request was canceled.");
+                    else
+                        onException?.Invoke(ex);
+                });
         }
-
     }
-    public class NetSerivceRequestRespond<TRequest, TRespond> : NetSerivceBase where TRespond : class
+
+    public sealed class NetServiceVoid : NetServiceCommand<AsyncUnit>
     {
-        public NetSerivceRequestRespond(NetServiceRequestHandler requestHandler, Func<TRequest, CancellationToken, UniTask<TRespond>> func, Func<(TRequest request, TRespond respond), CancellationToken, UniTask> respondAndNewValueFunc) : base(requestHandler)
+        public NetServiceVoid(NetServiceRequestHandler handler, Func<CancellationToken, UniTask> func, Func<CancellationToken, UniTask> onRespond = null)
+            : base(handler,
+                (_, ct) => func(ct),
+                onRespond == null ? null : (_, ct) => onRespond(ct))
         {
-            m_func = func ?? throw new ArgumentNullException(nameof(func));
-            m_respondAndNewValueFunc = respondAndNewValueFunc;
-        }
-        internal readonly Func<TRequest, CancellationToken, UniTask<TRespond>> m_func;
-        internal readonly Func<(TRequest request, TRespond respond), CancellationToken, UniTask> m_respondAndNewValueFunc;
-        private async UniTask<NetServiceAsyncRespond<TRespond>> RunAsync(TRequest value, CancellationToken ct)
-        {
-            try
-            {
-                TRespond respond = await m_func(value, ct);
-
-                if (m_respondAndNewValueFunc != null)
-                    await m_respondAndNewValueFunc((value, respond), ct);
-
-                return NetServiceAsyncRespond<TRespond>.ResultSuccess(respond);
-            }
-            catch (LearningPortfolioApiException ex)
-            {
-                return NetServiceAsyncRespond<TRespond>.ResultFailed(ex);
-            }
         }
 
-        public UniTask<NetServiceAsyncRespond<TRespond>> RequestAsync(TRequest value)
+        public UniTask<NetServiceAsyncRespond> RequestAsync(CancellationToken ct = default)
+            => RequestAsync(AsyncUnit.Default, ct);
+
+        public void Request(Action onSuccess, Action<string> onFailure, Action<Exception> onException = null, CancellationToken ct = default)
+            => Request(AsyncUnit.Default, onSuccess, onFailure, onException, ct);
+    }
+
+    public sealed class NetServiceRequest<TRequest> : NetServiceCommand<TRequest>
+    {
+        public NetServiceRequest(NetServiceRequestHandler handler, Func<TRequest, CancellationToken, UniTask> func, Func<TRequest, CancellationToken, UniTask> onRespond = null)
+            : base(handler, func, onRespond)
         {
-            var tcs = new UniTaskCompletionSource<NetServiceAsyncRespond<TRespond>>();
-            RequestHandler.Queue(async (ct) =>
-            {
-                var result = await RunAsync(value, ct);
-                tcs.TrySetResult(result);
-            });
-            return tcs.Task;
+        }
+    }
+
+    public sealed class NetServiceRespond<TRespond> : NetService<AsyncUnit, TRespond>
+    {
+        public NetServiceRespond(NetServiceRequestHandler handler, Func<CancellationToken, UniTask<TRespond>> func, Func<TRespond, CancellationToken, UniTask> onRespond = null)
+            : base(handler,
+                (_, ct) => func(ct),
+                onRespond == null ? null : (t, ct) => onRespond(t.Respond, ct))
+        {
         }
 
-        public void Request(
-            TRequest value,
-            Action<TRespond> onSuccess,
-            Action<string> onFailure,
-            Action<Exception> onException = null)
-        {
-            RequestHandler.Queue(async (ct) =>
-            {
-                try
-                {
-                    var result = await RunAsync(value, ct);
+        public UniTask<NetServiceAsyncRespond<TRespond>> RequestAsync(CancellationToken ct = default)
+            => RequestAsync(AsyncUnit.Default, ct);
 
-                    if (result.IsSuccess)
-                        onSuccess?.Invoke(result.Data);
-                    else
-                        onFailure?.Invoke(result.ErrorMessage);
-                }
-                catch (OperationCanceledException)
-                {
-                    onFailure?.Invoke("Request was canceled.");
-                }
-                catch (Exception ex)
-                {
-                    onException?.Invoke(ex);
-                }
-            });
+        public void Request(Action<TRespond> onSuccess, Action<string> onFailure, Action<Exception> onException = null, CancellationToken ct = default)
+            => Request(AsyncUnit.Default, onSuccess, onFailure, onException, ct);
+    }
+
+    public sealed class NetServiceRequestRespond<TRequest, TRespond> : NetService<TRequest, TRespond>
+    {
+        public NetServiceRequestRespond(
+            NetServiceRequestHandler handler,
+            Func<TRequest, CancellationToken, UniTask<TRespond>> func,
+            Func<(TRequest Request, TRespond Respond), CancellationToken, UniTask> onRespond = null)
+            : base(handler, func, onRespond)
+        {
         }
     }
 }

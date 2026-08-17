@@ -806,32 +806,32 @@ namespace EWova.LearningPortfolio
 
                 process.Status = FetchProjectSheetStatus.InternalHandleSheet;
                 #region 3. 初始化路徑節點節點的標記與取消標記方法
-                RESULT.SetCompleteIncludeNonNode = new NetSerivceRequest<string>
+                RESULT.SetCompleteIncludeNonNode = new NetServiceRequest<string>
                 (
-                    requestHandler: RESULT.NetServiceHandler,
+                    handler: RESULT.NetServiceHandler,
                     func: (path, ct) => m_apiClient.SetCompleteProgressAsync
                     (
                         sheetId: RESULT.SheetId,
                         path: path,
                         ct: ct
                     ),
-                    newValueFunc: async (path, ct) =>
+                    onRespond: async (path, ct) =>
                     {
                         RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
                         Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressCompletionDic;
                         obj.TryAdd(path, DateTime.Now);
                     }
                 );
-                RESULT.SetUnmarkIncludeNonNode = new NetSerivceRequest<string>
+                RESULT.SetUnmarkIncludeNonNode = new NetServiceRequest<string>
                 (
-                    requestHandler: RESULT.NetServiceHandler,
+                    handler: RESULT.NetServiceHandler,
                     func: (path, ct) => m_apiClient.SetUnmarkProgressAsync
                     (
                         sheetId: RESULT.SheetId,
                         path: path,
                         ct: ct
                     ),
-                    newValueFunc: async (path, ct) =>
+                    onRespond: async (path, ct) =>
                     {
                         RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
                         Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressCompletionDic;
@@ -869,32 +869,32 @@ namespace EWova.LearningPortfolio
 
                     pNode.Path = parent == null ? pNode.Id : $"{parent.Path}/{pNode.Id}";
                     string path = pNode.Path;
-                    pNode.SetComplete = new NetSerivceVoid
+                    pNode.SetComplete = new NetServiceVoid
                     (
-                        requestHandler: RESULT.NetServiceHandler,
+                        handler: RESULT.NetServiceHandler,
                         func: (ct) => m_apiClient.SetCompleteProgressAsync
                         (
                             sheetId: RESULT.SheetId,
                             path: path,
                             ct: ct
                         ),
-                        respondFunc: async (ct) =>
+                        onRespond: async (ct) =>
                         {
                             RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
                             Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressCompletionDic;
                             obj.TryAdd(path, DateTime.Now);
                         }
                     );
-                    pNode.SetUnmark = new NetSerivceVoid
+                    pNode.SetUnmark = new NetServiceVoid
                     (
-                        requestHandler: RESULT.NetServiceHandler,
+                        handler: RESULT.NetServiceHandler,
                         func: (ct) => m_apiClient.SetUnmarkProgressAsync
                         (
                             sheetId: RESULT.SheetId,
                             path: path,
                             ct: ct
                         ),
-                        respondFunc: async (ct) =>
+                        onRespond: async (ct) =>
                         {
                             RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
                             Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressCompletionDic;
@@ -959,16 +959,16 @@ namespace EWova.LearningPortfolio
                         Rows = new SortedDictionary<int, Row>(),
                         Cells = new(),
                     };
-                    page.AddRow = new NetSerivceRespond<Api.AddRowResponse>
+                    page.AddRow = new NetServiceRespond<Api.AddRowResponse>
                     (
-                        requestHandler: RESULT.NetServiceHandler,
+                        handler: RESULT.NetServiceHandler,
                         func: (ct) => m_apiClient.AddPageRowAsync
                         (
                             sheetId: RESULT.SheetId,
                             page: CURRENT_PAGE,
                             ct: ct
                         ),
-                        respondFunc: (respond, ct) =>
+                        onRespond: (respond, ct) =>
                         {
                             return UniTask.Create(async (innerCt) =>
                             {
@@ -977,7 +977,7 @@ namespace EWova.LearningPortfolio
                             }, ct);
                         }
                     );
-                    page.AddRowAndSetCells = new NetSerivceRequestRespond<Api.SetRowRequest, Api.AddRowResponse>
+                    page.AddRowAndSetCells = new NetService<Api.SetRowRequest, Api.AddRowResponse>
                     (
                         requestHandler: RESULT.NetServiceHandler,
                         func: (request, ct) => m_apiClient.AddPageRowAsync
@@ -986,31 +986,31 @@ namespace EWova.LearningPortfolio
                             page: CURRENT_PAGE,
                             ct: ct
                         ),
-                        respondAndNewValueFunc: async (tuple, ct) =>
+                        onRespond: async (tuple, ct) =>
                         {
                             //當使用者呼叫了AddRow 則+一頁
-                            await AddRow(tuple.respond.RowIndex, 1, ct);
-                            int newRowIndex = tuple.respond.RowIndex;
+                            await AddRow(tuple.Respond.RowIndex, 1, ct);
+                            int newRowIndex = tuple.Respond.RowIndex;
                             //寫入列
                             page.Rows[newRowIndex].SetCells.Request
                             (
-                                value: tuple.request,
+                                request: tuple.Request,
                                 onSuccess: () => { Debug.Log("成功寫入新增列資料"); },
                                 onFailure: (msg) => { Debug.LogError("寫入新增列資料失敗 因為:" + msg); },
                                 onException: (ex) => { Debug.LogException(ex); }
                             );
                         }
                     );
-                    page.ClearReadableData = new NetSerivceVoid
+                    page.ClearReadableData = new NetServiceVoid
                     (
-                        requestHandler: RESULT.NetServiceHandler,
+                        handler: RESULT.NetServiceHandler,
                         func: (ct) => m_apiClient.ClearPageReadableDataAsync
                         (
                             sheetId: RESULT.SheetId,
                             page: CURRENT_PAGE
                             , ct: ct
                         ),
-                        respondFunc: (ct) =>
+                        onRespond: (ct) =>
                         {
                             page.Cells.Clear();
                             var rows = (SortedDictionary<int, Row>)page.Rows;
@@ -1035,9 +1035,9 @@ namespace EWova.LearningPortfolio
                             IsReadOnly = _rawColumn.IsReadOnly,
                             FieldType = TryParseFieldType(_rawColumn.FieldType),
                         };
-                        column.Edit = new NetSerivceRequest<Api.SetColumnRequest>
+                        column.Edit = new NetServiceRequest<Api.SetColumnRequest>
                         (
-                            requestHandler: RESULT.NetServiceHandler,
+                            handler: RESULT.NetServiceHandler,
                             func: (request, ct) => m_apiClient.SetPageColumnAsync
                             (
                                 sheetId: RESULT.SheetId,
@@ -1046,7 +1046,7 @@ namespace EWova.LearningPortfolio
                                 request: request,
                                 ct: ct
                             ),
-                            newValueFunc: (newValue, ct) =>
+                            onRespond: (newValue, ct) =>
                             {
                                 column.FieldType = TryParseFieldType(newValue.FieldType);
                                 return UniTask.CompletedTask;
@@ -1078,9 +1078,9 @@ namespace EWova.LearningPortfolio
                             };
                             ((SortedDictionary<int, Row>)page.Rows).Add(newRow.Index, newRow);
 
-                            newRow.SetCells = new NetSerivceRequest<Api.SetRowRequest>
+                            newRow.SetCells = new NetServiceRequest<Api.SetRowRequest>
                             (
-                                requestHandler: RESULT.NetServiceHandler,
+                                handler: RESULT.NetServiceHandler,
                                 func: (request, ct) => m_apiClient.SetPageRowAsync
                                 (
                                     sheetId: RESULT.SheetId,
@@ -1089,7 +1089,7 @@ namespace EWova.LearningPortfolio
                                     request: request,
                                     ct: ct
                                 ),
-                                newValueFunc: (newValue, ct) =>
+                                onRespond: (newValue, ct) =>
                                 {
                                     return UniTask.Create(async (innerCt) =>
                                     {

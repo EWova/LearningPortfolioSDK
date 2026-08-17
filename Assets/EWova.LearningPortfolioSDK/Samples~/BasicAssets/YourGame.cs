@@ -215,7 +215,7 @@ namespace EWova.LearningPortfolio.BasicAssets
             // 如果你想新增一列資料到該頁 {目標頁}
             targetPage.AddRowAndSetCells.Request
             (
-                value: new Api.SetRowRequest()
+                request: new Api.SetRowRequest()
                 {
                     Cells = new string[] { "70", "NewV", "66", "101", "123" }
                 },

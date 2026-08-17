@@ -216,11 +216,11 @@ namespace EWova.LearningPortfolio
             /// <summary>
             /// [網路服務請求] 標記某路徑為已完成 (節點可能不存在，但允許標記完成。可能用於隱藏進度紀錄)
             /// </summary>
-            public NetSerivceRequest<string> SetCompleteIncludeNonNode { get; internal set; }
+            public NetServiceRequest<string> SetCompleteIncludeNonNode { get; internal set; }
             /// <summary>
             /// [網路服務請求] 取消某路徑已完成標記 (節點可能不存在，但允許標記完成。可能用於隱藏進度紀錄)
             /// </summary>
-            public NetSerivceRequest<string> SetUnmarkIncludeNonNode { get; internal set; }
+            public NetServiceRequest<string> SetUnmarkIncludeNonNode { get; internal set; }
 
             protected virtual void Dispose(bool disposing)
             {
@@ -306,11 +306,11 @@ namespace EWova.LearningPortfolio
             /// <summary>
             /// [網路服務請求] 標記該節點為已完成
             /// </summary>
-            public NetSerivceVoid SetComplete { get; internal set; }
+            public NetServiceVoid SetComplete { get; internal set; }
             /// <summary>
             /// [網路服務請求] 取消標記該節點已完成
             /// </summary>
-            public NetSerivceVoid SetUnmark { get; internal set; }
+            public NetServiceVoid SetUnmark { get; internal set; }
             /// <summary>
             /// 是否已完成 (自己、子節點或父節點其中之一已完成即為完成)
             /// </summary>
@@ -411,15 +411,15 @@ namespace EWova.LearningPortfolio
             /// <summary>
             /// [網路服務請求] 加一資料列
             /// </summary>
-            public NetSerivceRespond<Api.AddRowResponse> AddRow { get; internal set; }
+            public NetServiceRespond<Api.AddRowResponse> AddRow { get; internal set; }
             /// <summary>
             /// [網路服務請求] 加一資料列並設定內容
             /// </summary>
-            public NetSerivceRequestRespond<Api.SetRowRequest, Api.AddRowResponse> AddRowAndSetCells { get; internal set; }
+            public NetService<Api.SetRowRequest, Api.AddRowResponse> AddRowAndSetCells { get; internal set; }
             /// <summary>
             /// [網路服務請求] 清除所有可讀寫資料
             /// </summary>
-            public NetSerivceVoid ClearReadableData { get; internal set; }
+            public NetServiceVoid ClearReadableData { get; internal set; }
         }
         /// <summary>
         /// 使用者專案記錄表單的欄位資料
@@ -459,7 +459,7 @@ namespace EWova.LearningPortfolio
             /// <summary>
             /// [網路服務請求] 修改欄位屬性設定
             /// </summary>
-            public NetSerivceRequest<Api.SetColumnRequest> Edit { get; internal set; }
+            public NetServiceRequest<Api.SetColumnRequest> Edit { get; internal set; }
             /// <summary>
             /// 儲存格彙總資訊
             /// </summary>
@@ -499,7 +499,7 @@ namespace EWova.LearningPortfolio
             /// <summary>
             /// [網路服務請求] 修改資料列內容
             /// </summary>
-            public NetSerivceRequest<Api.SetRowRequest> SetCells { get; internal set; }
+            public NetServiceRequest<Api.SetRowRequest> SetCells { get; internal set; }
         }
         /// <summary>
         /// 使用者專案記錄表單的儲存格資料

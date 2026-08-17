@@ -141,7 +141,7 @@ namespace EWova.LearningPortfolio.BasicAssets
             //新增列
             Page.AddRowAndSetCells.Request
             (
-                value: new Api.SetRowRequest()
+                request: new Api.SetRowRequest()
                 {
                     Cells = data
                 },
@@ -190,7 +190,7 @@ namespace EWova.LearningPortfolio.BasicAssets
             {
                 Sheet.SetUnmarkIncludeNonNode.Request
                 (
-                    value: path,
+                    request: path,
                     onSuccess: () => { Debug.Log($"成功取消進度完成標記 {path}"); },
                     onFailure: (msg) => { Debug.LogError($"取消進度完成標記失敗 {path} 因為:" + msg); },
                     onException: (ex) => { Debug.LogException(ex); }
