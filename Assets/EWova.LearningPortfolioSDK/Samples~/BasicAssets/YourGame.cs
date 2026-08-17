@@ -2,8 +2,10 @@ using UnityEngine;
 using UnityEngine.UI;
 
 using TMPro;
+
 using System;
 using System.Linq;
+
 using Cysharp.Threading.Tasks;
 
 namespace EWova.LearningPortfolio.BasicAssets
@@ -127,15 +129,22 @@ namespace EWova.LearningPortfolio.BasicAssets
             {
                 UniTask.Void(async () =>
                 {
-                    NetServiceAsyncRespond result = await node3.SetComplete.RequestAsync();
-                    if (result.IsSuccess)
-                        Debug.Log("'單元1/關卡1' 成功標記進度完成");
-                    else if (result.IsFailed)
-                        Debug.LogError("標記進度完成失敗 因為:" + result.ErrorMessage);
-                    else if (result.IsException)
+                    try
+                    {
+                        NetServiceAsyncRespond result = await node3.SetComplete.RequestAsync();
+                        if (result.IsSuccess)
+                            Debug.Log("'單元1/關卡1' 成功標記進度完成");
+                        else if (result.IsFailed)
+                            Debug.LogError("標記進度完成失敗 因為:" + result.ErrorMessage);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Debug.LogError("標記進度完成請求被取消。");
+                    }
+                    catch (Exception ex)
                     {
                         // 標記進度完成發生例外
-                        Debug.LogException(result.Exception);
+                        Debug.LogException(ex);
                     }
                 });
             }
@@ -167,15 +176,22 @@ namespace EWova.LearningPortfolio.BasicAssets
             // 非同步寫法
             UniTask.Void(async () =>
             {
-                NetServiceAsyncRespond result = await targetPage.ClearReadableData.RequestAsync();
-                if (result.IsSuccess)
-                    Debug.Log("成功清除可讀取的資料");
-                else if (result.IsFailed)
-                    Debug.LogError("清除可讀取的資料失敗 因為:" + result.ErrorMessage);
-                else if (result.IsException)
+                try
+                {
+                    NetServiceAsyncRespond result = await targetPage.ClearReadableData.RequestAsync();
+                    if (result.IsSuccess)
+                        Debug.Log("成功清除可讀取的資料");
+                    else if (result.IsFailed)
+                        Debug.LogError("清除可讀取的資料失敗 因為:" + result.ErrorMessage);
+                }
+                catch (OperationCanceledException)
+                {
+                    Debug.LogError("清除可讀取的資料請求被取消。");
+                }
+                catch (Exception ex)
                 {
                     // 清除可讀取的資料發生例外
-                    Debug.LogException(result.Exception);
+                    Debug.LogException(ex);
                 }
             });
 
@@ -211,19 +227,26 @@ namespace EWova.LearningPortfolio.BasicAssets
             // 非同步寫法
             UniTask.Void(async () =>
             {
-                NetServiceAsyncRespond<Api.AddRowResponse> result =
-                    await targetPage.AddRowAndSetCells.RequestAsync(new Api.SetRowRequest()
-                    {
-                        Cells = new string[] { "70", "NewV", "66", "101", "123" }
-                    });
-                if (result.IsSuccess)
-                    Debug.Log($"成功新增寫入一筆列資料，索引位置為 {result.Data.RowIndex}");
-                else if (result.IsFailed)
-                    Debug.LogError("新增新列失敗 因為:" + result.ErrorMessage);
-                else if (result.IsException)
+                try
+                {
+                    NetServiceAsyncRespond<Api.AddRowResponse> result =
+                        await targetPage.AddRowAndSetCells.RequestAsync(new Api.SetRowRequest()
+                        {
+                            Cells = new string[] { "70", "NewV", "66", "101", "123" }
+                        });
+                    if (result.IsSuccess)
+                        Debug.Log($"成功新增寫入一筆列資料，索引位置為 {result.Data.RowIndex}");
+                    else if (result.IsFailed)
+                        Debug.LogError("新增新列失敗 因為:" + result.ErrorMessage);
+                }
+                catch (OperationCanceledException)
+                {
+                    Debug.LogError("新增新列請求被取消。");
+                }
+                catch (Exception ex)
                 {
                     // 新增新列發生例外
-                    Debug.LogException(result.Exception);
+                    Debug.LogException(ex);
                 }
             });
 
