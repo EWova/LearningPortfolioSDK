@@ -116,21 +116,22 @@ namespace EWova.LearningPortfolio
             m_queue.Clear();
         }
     }
+    public enum AsyncRespondStatus
+    {
+        Success,
+        Failed,
+        Exception
+    }
     public readonly struct NetServiceAsyncRespond
     {
         public string ErrorMessage { get; }
         public Exception Exception { get; }
-        public bool IsSuccess => Status == StatusType.Success;
-        public bool IsFailed => Status == StatusType.Failed;
-        public bool IsException => Status == StatusType.Exception;
-        private StatusType Status { get; }
-        private enum StatusType
-        {
-            Success,
-            Failed,
-            Exception
-        }
-        private NetServiceAsyncRespond(string errorMessage, Exception exception, StatusType status)
+        public bool IsSuccess => Status == AsyncRespondStatus.Success;
+        public bool IsFailed => Status == AsyncRespondStatus.Failed;
+        public bool IsException => Status == AsyncRespondStatus.Exception;
+        public readonly AsyncRespondStatus Status;
+
+        private NetServiceAsyncRespond(string errorMessage, Exception exception, AsyncRespondStatus status)
         {
             ErrorMessage = errorMessage;
             Exception = exception;
@@ -138,13 +139,13 @@ namespace EWova.LearningPortfolio
         }
 
         public static NetServiceAsyncRespond ResultSuccess()
-            => new NetServiceAsyncRespond(null, null, StatusType.Success);
+            => new NetServiceAsyncRespond(null, null, AsyncRespondStatus.Success);
 
         public static NetServiceAsyncRespond ResultFailed(string errorMessage, Exception handleEx)
-            => new NetServiceAsyncRespond(errorMessage, handleEx, StatusType.Failed);
+            => new NetServiceAsyncRespond(errorMessage, handleEx, AsyncRespondStatus.Failed);
 
         public static NetServiceAsyncRespond ResultException(Exception ex)
-            => new NetServiceAsyncRespond(null, ex, StatusType.Exception);
+            => new NetServiceAsyncRespond(null, ex, AsyncRespondStatus.Exception);
     }
     public readonly struct NetServiceAsyncRespond<T>
     {
@@ -152,20 +153,13 @@ namespace EWova.LearningPortfolio
         public string ErrorMessage { get; }
         public Exception Exception { get; }
 
-        public bool IsSuccess => Status == StatusType.Success;
-        public bool IsFailed => Status == StatusType.Failed;
-        public bool IsException => Status == StatusType.Exception;
+        public bool IsSuccess => Status == AsyncRespondStatus.Success;
+        public bool IsFailed => Status == AsyncRespondStatus.Failed;
+        public bool IsException => Status == AsyncRespondStatus.Exception;
 
-        private StatusType Status { get; }
+        public readonly AsyncRespondStatus Status;
 
-        private enum StatusType
-        {
-            Success,
-            Failed,
-            Exception
-        }
-
-        private NetServiceAsyncRespond(T data, string errorMessage, Exception exception, StatusType status)
+        private NetServiceAsyncRespond(T data, string errorMessage, Exception exception, AsyncRespondStatus status)
         {
             Data = data;
             ErrorMessage = errorMessage;
@@ -174,13 +168,13 @@ namespace EWova.LearningPortfolio
         }
 
         public static NetServiceAsyncRespond<T> ResultSuccess(T data)
-            => new NetServiceAsyncRespond<T>(data, null, null, StatusType.Success);
+            => new NetServiceAsyncRespond<T>(data, null, null, AsyncRespondStatus.Success);
 
         public static NetServiceAsyncRespond<T> ResultFailed(string errorMessage, Exception handleEx)
-            => new NetServiceAsyncRespond<T>(default, errorMessage, handleEx, StatusType.Failed);
+            => new NetServiceAsyncRespond<T>(default, errorMessage, handleEx, AsyncRespondStatus.Failed);
 
         public static NetServiceAsyncRespond<T> ResultException(Exception ex)
-            => new NetServiceAsyncRespond<T>(default, null, ex, StatusType.Exception);
+            => new NetServiceAsyncRespond<T>(default, null, ex, AsyncRespondStatus.Exception);
     }
 
     public abstract class NetSerivceBase
