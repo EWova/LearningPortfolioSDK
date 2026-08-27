@@ -153,16 +153,16 @@ namespace EWova.LearningPortfolio
         public static NetServiceAsyncRespond<T> ResultFailed(LearningPortfolioApiException ex) => new(default, AsyncRespondStatus.Failed, ex);
     }
 
-    public abstract class NetSerivceBase
+    public abstract class NetServiceBase
     {
-        protected NetSerivceBase(NetServiceRequestHandler requestHandler)
+        protected NetServiceBase(NetServiceRequestHandler requestHandler)
         {
             RequestHandler = requestHandler ?? throw new ArgumentNullException(nameof(requestHandler));
         }
         internal readonly NetServiceRequestHandler RequestHandler;
     }
 
-    public class NetServiceCommand<TRequest> : NetSerivceBase
+    public class NetServiceCommand<TRequest> : NetServiceBase
     {
         private readonly Func<TRequest, CancellationToken, UniTask> m_func;
         private readonly Func<TRequest, CancellationToken, UniTask> m_onDone;
@@ -222,7 +222,7 @@ namespace EWova.LearningPortfolio
         }
     }
 
-    public class NetService<TRequest, TRespond> : NetSerivceBase
+    public class NetService<TRequest, TRespond> : NetServiceBase
     {
         private readonly Func<TRequest, CancellationToken, UniTask<TRespond>> m_func;
         private readonly Func<(TRequest Request, TRespond Respond), CancellationToken, UniTask> m_onRespond;
