@@ -8,24 +8,24 @@ All examples below are taken almost verbatim from the package's own `Samples~/Ba
 ```
 UserProjectRecordSheet (LearningPortfolio.LoggedUserProjectRecordSheet)
 ├─ ProgressNode (tree)        e.g. path "單元1/關卡1"
-│   ├─ SetComplete : NetSerivceVoid
-│   └─ SetUnmark   : NetSerivceVoid
-├─ SetCompleteIncludeNonNode : NetSerivceRequest<string>   // mark a path complete even if no node exists for it
-├─ SetUnmarkIncludeNonNode   : NetSerivceRequest<string>
+│   ├─ SetComplete : NetServiceVoid
+│   └─ SetUnmark   : NetServiceVoid
+├─ SetCompleteIncludeNonNode : NetServiceRequest<string>   // mark a path complete even if no node exists for it
+├─ SetUnmarkIncludeNonNode   : NetServiceRequest<string>
 └─ Pages[] (fixed columns, 1-indexed rows)
     Page
     ├─ Columns[]              // fixed, 0-indexed
-    │   Column.Edit : NetSerivceRequest<Api.SetColumnRequest>
+    │   Column.Edit : NetServiceRequest<Api.SetColumnRequest>
     ├─ Rows[1..N]             // 1-indexed!
-    │   Row.SetCells : NetSerivceRequest<Api.SetRowRequest>
-    ├─ AddRow : NetSerivceRespond<Api.AddRowResponse>
-    ├─ AddRowAndSetCells : NetSerivceRequestRespond<Api.SetRowRequest, Api.AddRowResponse>
-    └─ ClearReadableData : NetSerivceVoid
+    │   Row.SetCells : NetServiceRequest<Api.SetRowRequest>
+    ├─ AddRow : NetServiceRespond<Api.AddRowResponse>
+    ├─ AddRowAndSetCells : NetService<Api.SetRowRequest, Api.AddRowResponse>
+    └─ ClearReadableData : NetServiceVoid
 ```
 
 ## The two calling styles
 
-Every `NetSerivce*` write handle offers both:
+Every `NetService*` write handle offers both:
 
 - **Callback style** — `.Request(..., onSuccess, onFailure, onException)` — never throws, queued
   fire-and-forget.
@@ -70,7 +70,7 @@ sheet.SetCompleteIncludeNonNode.Request("Extra/額外關卡",
     onException: (ex) => Debug.LogException(ex));
 
 // Reset all completion
-foreach (var path in sheet.ProgressCompletions)
+foreach (var path in sheet.ProgressCompletionDic.Keys)
 {
     sheet.SetUnmarkIncludeNonNode.Request(path,
         onSuccess: () => Debug.Log($"成功取消進度完成標記 {path}"),
@@ -83,7 +83,16 @@ foreach (var path in sheet.ProgressCompletions)
 `IsCompletedSelf` if you need only the node's own flag. `CompleteTime` gives the local completion
 timestamp if marked, else `null`.
 
+`sheet.ProgressCompletionDic` (`IReadOnlyDictionary<string, DateTime>`, path → completion time) is the
+current API; `ProgressCompletions`/`ProgressCompletionsLocalDateTime` are `[Obsolete]` aliases kept for
+backward compatibility.
+
 ## Pages / rows / columns (1-indexed rows!)
+
+Before issuing a write, also guard on `LearningPortfolio.IsUpdatingUserProjectRecord` (in addition to
+`IsConnected`) — it's `true` while any write for the current user's sheet is still in flight, so you
+can disable a submit button / avoid firing a redundant write instead of just letting requests queue up
+silently.
 
 ```csharp
 LearningPortfolio.Page targetPage = sheet.Pages[1]; // page index is 0-based (page 0 = overview)
@@ -107,7 +116,7 @@ pageTargetRow.SetCells.Request(
 
 // Append a new row and set its cells in one call
 targetPage.AddRowAndSetCells.Request(
-    value: new Api.SetRowRequest { Cells = new[] { "70", "NewV", "66", "101", "123" } },
+    request: new Api.SetRowRequest { Cells = new[] { "70", "NewV", "66", "101", "123" } },
     onSuccess: (response) => Debug.Log($"成功新增寫入一筆列資料，索引位置為 {response.RowIndex}"),
     onFailure: (msg) => Debug.LogError("新增新列失敗 因為:" + msg),
     onException: (ex) => Debug.LogException(ex)
@@ -191,6 +200,101 @@ SheetHelper.Release(typeof(Level1Page), typeof(Level2Page));
 SheetHelper.ReleaseAll();
 ```
 
+## Recommended project architecture (Scheme + Manager pattern)
+
+The SDK itself is unopinionated about how you organize page/row types or progress-node paths — this is
+a convention worth adopting for any project with more than one or two pages, not something the package
+ships or enforces.
+
+**1. A `Scheme` static class — single source of truth for your backend layout.**
+
+```csharp
+public static class ProjectScheme
+{
+    // Semantic progress-node names -> the actual backend path strings.
+    // Keeps path strings out of gameplay code and in one place to update if the backend layout changes.
+    public enum ProgressNode { 完成教材, 第一關, 第一關_考試測驗, /* ... */ }
+    public readonly static IReadOnlyDictionary<ProgressNode, string> ProgressNodeMap = new Dictionary<ProgressNode, string>
+    {
+        [ProgressNode.完成教材] = "clear",
+        [ProgressNode.第一關] = "clear/levell",
+        // ...
+    };
+
+    // Mirrors the backend's page order (page 0 is conventionally an overview page).
+    public enum Level { 第一關 = 1, 第二關 = 2, 特殊測驗 = 3 }
+
+    // One [Column]-tagged class per page, matching that page's fixed columns.
+    public class OverviewPageLevelRow
+    {
+        [Column("總遊玩次數")] public int TotalPlayCount;
+        [Column("總遊玩時間")] public TimeSpan TotalPlayTime;
+    }
+
+    // A common base exposing which page a row type belongs to lets manager code below stay generic.
+    public abstract class LevelRowBase { public abstract Level Level { get; } }
+
+    public class Level1PageRow : LevelRowBase
+    {
+        public override Level Level => Level.第一關;
+        [Column("分數")] public int Score;
+        [Column("是否完成關卡")] public bool IsCompletePlay;
+    }
+}
+```
+
+**2. A `Manager` wrapper — one place for the connect/updating guards and typed read/write methods.**
+
+```csharp
+public class SheetManager : MonoBehaviour
+{
+    // ... singleton boilerplate ...
+
+    private void EnsureConnected()
+    {
+        if (!LearningPortfolio.IsConnected)
+            throw new Exception("尚未連接，請先登入");
+    }
+    private void EnsureSheetNotUpdating()
+    {
+        if (LearningPortfolio.IsUpdatingUserProjectRecord)
+            throw new Exception("仍在上傳中，稍後再試");
+    }
+
+    // Generic append works for ANY page's row type, because T.Level says which page to target.
+    public void AppendRowData<T>(T writeData, Action<LearningPortfolio.Row> onFinished)
+        where T : ProjectScheme.LevelRowBase
+    {
+        EnsureConnected();
+        EnsureSheetNotUpdating();
+
+        var targetPage = LearningPortfolio.LoggedUserProjectRecordSheet.Pages[(int)writeData.Level];
+        string[] cells = SheetHelper.AlignToColumns(writeData, targetPage);
+
+        targetPage.AddRowAndSetCells.Request(
+            request: new Api.SetRowRequest { Cells = cells },
+            onSuccess: response => onFinished?.Invoke(targetPage.Rows[response.RowIndex]),
+            onFailure: msg => { onFinished?.Invoke(null); Debug.LogError(msg); },
+            onException: ex => { onFinished?.Invoke(null); Debug.LogException(ex); });
+    }
+}
+```
+
+Why this shape:
+- **Guards live in one place.** Every write goes through `EnsureConnected`/`EnsureSheetNotUpdating`
+  instead of every call site repeating the same two `if`s.
+- **`LevelRowBase.Level` drives dispatch.** Because every row type knows its own page, generic methods
+  like `AppendRowData<T>`/`SetRowData<T>`/`TryGetRowData<T>` can be written once instead of once per
+  page. This only works for pages that share the same interaction shape (append/overwrite one row of N);
+  a page that behaves differently — e.g. an overview page with exactly one fixed row per level instead
+  of a growing list — gets its own dedicated method pair instead of being forced into the generic one.
+- **`ProgressNodeMap` decouples enum names from path strings.** Gameplay code calls something like
+  `SetProgressNodeCompleted(ProjectScheme.ProgressNode.第一關)` instead of hardcoding `"clear/levell"`
+  at every call site, so the path layout can change in one place later.
+
+Adjust the exact enums/classes to your own backend layout — the pattern (Scheme = data shape, Manager =
+guarded access) is what's reusable, not the specific field names above.
+
 ## Blocking reconnect while a session is active
 
 ```csharp
@@ -221,5 +325,5 @@ before any network call.
 `.SourceApiEx` (the underlying transport-level `ApiException` from the `com.ewova.core` networking
 layer, with `.IsServerError`). These only surface from the `Async` call sites that don't already funnel
 errors into `onFailure`/`onException` (e.g. `LearningPortfolio.ConnectAsync`,
-`LearningPortfolio.FetchUserProjectSheet`) — the per-field `NetSerivce*.RequestAsync()` calls above
+`LearningPortfolio.FetchUserProjectSheet`) — the per-field `NetService*.RequestAsync()` calls above
 never throw, they return a result struct instead.

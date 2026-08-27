@@ -53,9 +53,9 @@ contains a fully worked reference project (`Template.cs`, `YourGame.cs`, `Player
 | `LearningPortfolio.UserProjectRecordSheet` | The logged-in user's whole record: `ProgressNode` tree + `Page[]`. Obtained via `LearningPortfolio.LoggedUserProjectRecordSheet` or the `FetchUserProjectSheet`/`OnUserProjectRecordUpdated` callback. |
 | `LearningPortfolio.ProgressNode` | One node in a completion tree (e.g. `"單元1/關卡1"`). Has `SetComplete`/`SetUnmark` write handles. |
 | `LearningPortfolio.Page` / `Column` / `Row` / `Cell` | Spreadsheet-like data per page: fixed `Column`s, 1-indexed `Row`s, each `Row` has `SetCells`; `Page` has `AddRow`/`AddRowAndSetCells`/`ClearReadableData`. |
-| `NetSerivceVoid` / `NetSerivceRequest<T>` / `NetSerivceRespond<T>` / `NetSerivceRequestRespond<T,U>` | The write-handle types exposed as properties on the model above (`.Request(...)` callback style or `.RequestAsync(...)` awaitable style). All network writes for one sheet are serialized through one internal queue — you never race two writes on the same user. |
+| `NetServiceVoid` / `NetServiceRequest<T>` / `NetServiceRespond<T>` / `NetService<TRequest,TRespond>` | The write-handle types exposed as properties on the model above (`.Request(...)` callback style or `.RequestAsync(...)` awaitable style). All network writes for one sheet are serialized through one internal queue — you never race two writes on the same user. |
 | `ProjectRecordShower` | Read-only viewer UI (progress graph + spreadsheet) for the current user's record. Created via `LearningPortfolio.CreateUserProjectRecordShower(rectTransform)`, not instantiated directly. |
-| `Api.SetRowRequest` / `Api.SetColumnRequest` / `Api.AddRowResponse` | The only `Api.*` (raw backend DTO) types you construct yourself, as payloads to the `NetSerivce*` calls above. Every other `Api.*` type (`Api.Project`, `Api.Sheet`, `Api.ProgressNode`, ...) is an internal wire-format DTO the SDK deserializes into the friendlier types above — don't construct or depend on them, except `Api.Project` which is directly exposed read-only as `LearningPortfolio.ConnectedProject`. |
+| `Api.SetRowRequest` / `Api.SetColumnRequest` / `Api.AddRowResponse` | The only `Api.*` (raw backend DTO) types you construct yourself, as payloads to the `NetService*` calls above. Every other `Api.*` type (`Api.Project`, `Api.Sheet`, `Api.ProgressNode`, ...) is an internal wire-format DTO the SDK deserializes into the friendlier types above — don't construct or depend on them, except `Api.Project` which is directly exposed read-only as `LearningPortfolio.ConnectedProject`. |
 | `LearningPortfolioApiException` and subclasses (`ApiSheetException`, `ApiUsageException`, `ApiProjectException`, `ApiLeaderboardException`) | Thrown from awaited `*Async` calls on backend failure; carry `.Action`, `.SourceApiEx`. The `.Request(...)` callback style instead routes failures to `onFailure`/`onException` — it never throws. |
 
 **Not for third-party use** (looks reachable but isn't):
@@ -151,6 +151,9 @@ shower.Close();
   first row). Column indices are 0-based.
 - **Always guard on `LearningPortfolio.IsConnected`** before touching `LoggedUserProjectRecordSheet` —
   it's `null` when not connected, and all samples check this first.
+- **Also guard writes on `LearningPortfolio.IsUpdatingUserProjectRecord`** — `true` while a previous
+  write for the current user's sheet is still in flight. Requests still queue safely if you don't, but
+  checking it lets you disable a submit button / skip a redundant write instead of silently piling up.
 - **`IsLoggedIn` is `[Obsolete]`** — use `IsConnected` instead (identical value now, but `Connect` used
   to only mean "authenticated", now it means "authenticated + record sheet loaded").
 - **Never construct `LPApiClient` or `LearningPortfolioEWovaAuth` yourself** — both have internal-only
@@ -168,6 +171,7 @@ shower.Close();
 ## Detailed reference
 
 See `references/data-model.md` for: the full `ProgressNode`/`Page`/`Column`/`Row`/`Cell` write API
-(`NetSerivceVoid`/`NetSerivceRequest<T>`/`NetSerivceRespond<T>`/`NetSerivceRequestRespond<T,U>`,
-callback vs. `Async` styles), `SheetHelper`/`[Column]` object↔row mapping, and additional worked
-examples lifted directly from the BasicAssets sample (`PlayerDataUploader.cs`).
+(`NetServiceVoid`/`NetServiceRequest<T>`/`NetServiceRespond<T>`/`NetService<TRequest,TRespond>`,
+callback vs. `Async` styles), `SheetHelper`/`[Column]` object↔row mapping, a recommended
+Scheme+Manager project architecture for organizing page/row types and progress-node paths, and
+additional worked examples lifted directly from the BasicAssets sample (`PlayerDataUploader.cs`).
