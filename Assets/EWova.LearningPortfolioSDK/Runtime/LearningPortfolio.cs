@@ -1015,7 +1015,11 @@ namespace EWova.LearningPortfolio
                             page.Cells.Clear();
                             var rows = (SortedDictionary<int, Row>)page.Rows;
                             rows.Clear();
-                            return UniTask.CompletedTask;
+                            return UniTask.Create(async (innerCt) =>
+                            {
+                                await LoadCurrentPageAllColumnSummary(innerCt);
+                                await LoadFirstPageColumnSummary(innerCt);
+                            }, ct);
                         }
                     );
 
