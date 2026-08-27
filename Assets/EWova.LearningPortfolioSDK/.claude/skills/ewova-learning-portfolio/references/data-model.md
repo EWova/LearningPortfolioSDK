@@ -171,6 +171,26 @@ MyRecord readBack = SheetHelper.CreateFromRow<MyRecord>(someRow);
 // or: MyRecord readBack = someRow.CreateFromRow<MyRecord>();
 ```
 
+`SheetHelper` builds and caches each type's field-mapping reflection data lazily, on first use — not
+eagerly at domain load — so types you never touch never get scanned or cached. If you want to avoid the
+one-time reflection cost landing on a specific moment (e.g. mid-gameplay), call `SheetHelper.WarmUp<T>()`
+or `SheetHelper.WarmUp(typeof(A), typeof(B), ...)` for known types during a loading screen instead:
+
+```csharp
+SheetHelper.WarmUp<MyRecord>();
+SheetHelper.WarmUp(typeof(OverviewPage), typeof(Level1Page), typeof(Level2Page), typeof(SpPage));
+```
+
+The mapping is tiny, so you don't normally need to free it — but if you've warmed up (or otherwise
+touched) a large, scene/level-specific set of types you know you're done with, `Release`/`Release(params)`/
+`ReleaseAll` evict them from the cache; using the type again afterwards just rebuilds and re-caches it:
+
+```csharp
+SheetHelper.Release<MyRecord>();
+SheetHelper.Release(typeof(Level1Page), typeof(Level2Page));
+SheetHelper.ReleaseAll();
+```
+
 ## Blocking reconnect while a session is active
 
 ```csharp

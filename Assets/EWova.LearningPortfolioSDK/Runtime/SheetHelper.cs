@@ -210,6 +210,49 @@ namespace EWova.LearningPortfolio
         }
 
         /// <summary>
+        /// 預先建立並快取 <typeparamref name="T"/> 的欄位對應資訊。
+        /// 欄位對應本來就會在第一次使用該型別時自動快取，此方法僅用於「明確指定時機」預先付出這筆一次性的反射成本
+        /// （例如在 Loading 畫面呼叫，避免第一次 WriteTo/ReadFrom 等操作剛好發生在遊玩當下造成的 hitch）。
+        /// </summary>
+        public static void WarmUp<T>() => RetrieveFieldMappings(typeof(T));
+
+        /// <summary>
+        /// 預先建立並快取多個型別的欄位對應資訊，用途同 <see cref="WarmUp{T}"/>。
+        /// </summary>
+        public static void WarmUp(params Type[] types)
+        {
+            if (types == null)
+                return;
+
+            foreach (var type in types)
+                RetrieveFieldMappings(type);
+        }
+
+        /// <summary>
+        /// 釋放 <typeparamref name="T"/> 已快取的欄位對應資訊（對應 <see cref="WarmUp{T}"/>）。
+        /// 欄位對應本身很小，通常不需要主動釋放；若該型別已確定不再使用（例如卸載某個場景/關卡專屬的大量 Scheme），
+        /// 可呼叫此方法釋放快取。之後若再次使用該型別，會自動重新建立並快取。
+        /// </summary>
+        public static void Release<T>() => s_typeFieldCache.Remove(typeof(T));
+
+        /// <summary>
+        /// 釋放多個型別已快取的欄位對應資訊，用途同 <see cref="Release{T}"/>。
+        /// </summary>
+        public static void Release(params Type[] types)
+        {
+            if (types == null)
+                return;
+
+            foreach (var type in types)
+                s_typeFieldCache.Remove(type);
+        }
+
+        /// <summary>
+        /// 釋放所有型別已快取的欄位對應資訊。
+        /// </summary>
+        public static void ReleaseAll() => s_typeFieldCache.Clear();
+
+        /// <summary>
         /// 取得欄位對應的 ColumnAttribute 標籤名稱
         /// </summary>
         public static string GetColumnLabel<T>(string fieldName)
