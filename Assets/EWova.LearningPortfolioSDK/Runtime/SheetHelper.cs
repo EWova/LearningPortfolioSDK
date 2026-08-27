@@ -110,50 +110,27 @@ namespace EWova.LearningPortfolio
         }
 
         /// <summary>
-        /// 將物件資料寫入字典。
-        /// 僅會覆寫 <paramref name="outputDic"/> 中已存在的鍵，不會新增新的鍵值。
+        /// 將物件資料依 <paramref name="targetPage"/> 的欄位順序組成字串陣列，用於「新增一筆列」的情境
+        /// （可直接用於 <c>AddRowAndSetCells.Request</c>），故不需要（也不會用到）既有的 Row。
+        /// 物件沒有對應到的欄位，其值為 null。
         /// </summary>
-        public static void WriteTo(object sourceObj, Dictionary<string, string> outputDic)
+        public static string[] WriteToNewRow(object sourceObj, LearningPortfolio.Page targetPage)
         {
             if (sourceObj == null)
                 throw new ArgumentNullException(nameof(sourceObj));
 
-            if (outputDic == null)
-                throw new ArgumentNullException(nameof(outputDic));
+            if (targetPage == null)
+                throw new ArgumentNullException(nameof(targetPage));
 
             var mapping = RetrieveFieldMappings(sourceObj.GetType());
-            foreach (var (field, label) in mapping.Fields)
-            {
-                if (!outputDic.ContainsKey(label))
-                    continue;
-
-                object value = field.GetValue(sourceObj);
-                outputDic[label] = FormatAny(value);
-            }
-        }
-
-        /// <summary>
-        /// 將物件資料寫入資料列，回傳依資料列儲存格順序排列的字串陣列（可直接用於 SetCells.Request）。
-        /// 資料列中沒有對應物件欄位的儲存格，其值為 null。
-        /// </summary>
-        public static string[] WriteToRow(object sourceObj, LearningPortfolio.Row targetRow)
-        {
-            if (sourceObj == null)
-                throw new ArgumentNullException(nameof(sourceObj));
-
-            if (targetRow == null)
-                throw new ArgumentNullException(nameof(targetRow));
-
-            var mapping = RetrieveFieldMappings(sourceObj.GetType());
-
             var valueByLabel = new Dictionary<string, string>(mapping.Fields.Length);
             foreach (var (field, label) in mapping.Fields)
                 valueByLabel[label] = FormatAny(field.GetValue(sourceObj));
 
-            var cells = targetRow.Cells;
-            var result = new string[cells.Count];
-            for (int i = 0; i < cells.Count; i++)
-                valueByLabel.TryGetValue(cells[i].ColumnLabel, out result[i]);
+            string[] columnLabels = targetPage.GetColumnsLabel();
+            string[] result = new string[columnLabels.Length];
+            for (int i = 0; i < columnLabels.Length; i++)
+                valueByLabel.TryGetValue(columnLabels[i], out result[i]);
 
             return result;
         }
@@ -331,10 +308,10 @@ namespace EWova.LearningPortfolio
             => SheetHelper.WriteTo(sourceObj, outputDic);
 
         /// <summary>
-        /// 將物件資料寫入資料列，回傳依資料列儲存格順序排列的字串陣列（可直接用於 SetCells.Request）。
+        /// 將物件資料依頁面欄位順序組成字串陣列，用於「新增一筆列」的情境（可直接用於 AddRowAndSetCells.Request）。
         /// </summary>
-        public static string[] WriteToRow(this object sourceObj, LearningPortfolio.Row targetRow)
-            => SheetHelper.WriteToRow(sourceObj, targetRow);
+        public static string[] WriteToNewRow(this object sourceObj, LearningPortfolio.Page targetPage)
+            => SheetHelper.WriteToNewRow(sourceObj, targetPage);
 
         /// <summary>
         /// 從字典讀取資料到物件

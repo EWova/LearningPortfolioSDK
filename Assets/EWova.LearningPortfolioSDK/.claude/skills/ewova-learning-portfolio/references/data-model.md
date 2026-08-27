@@ -145,7 +145,7 @@ public class MyRecord
 }
 
 var record = new MyRecord { Score = 90, Name = "Lucy" };
-string[] cells = SheetHelper.WriteToRow(record, someExistingRow); // ready for SetCells.Request
+string[] cells = SheetHelper.WriteToNewRow(record, targetPage); // ready for AddRowAndSetCells.Request
 
 MyRecord readBack = new MyRecord();
 SheetHelper.ReadFromRow(someRow, ref readBack);
@@ -158,7 +158,7 @@ parsed via `Enum.Parse`); other unregistered types fall back to `Convert.ChangeT
 Extension-method style is also available via `SheetHelperExtensions`:
 
 ```csharp
-string[] cells = record.WriteToRow(someExistingRow);
+string[] cells = record.WriteToNewRow(targetPage);
 someRow.ReadFromRow(ref readBack);
 ```
 
