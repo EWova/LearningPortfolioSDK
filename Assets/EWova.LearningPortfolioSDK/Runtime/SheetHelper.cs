@@ -189,7 +189,7 @@ namespace EWova.LearningPortfolio
         /// <summary>
         /// 預先建立並快取 <typeparamref name="T"/> 的欄位對應資訊。
         /// 欄位對應本來就會在第一次使用該型別時自動快取，此方法僅用於「明確指定時機」預先付出這筆一次性的反射成本
-        /// （例如在 Loading 畫面呼叫，避免第一次 WriteTo/ReadFrom 等操作剛好發生在遊玩當下造成的 hitch）。
+        /// （例如在 Loading 畫面呼叫，避免第一次 WriteToNewRow/ReadFrom 等操作剛好發生在遊玩當下造成的 hitch）。
         /// </summary>
         public static void WarmUp<T>() => RetrieveFieldMappings(typeof(T));
 
@@ -300,13 +300,6 @@ namespace EWova.LearningPortfolio
     /// </summary>
     public static class SheetHelperExtensions
     {
-        /// <summary>
-        /// 將物件資料寫入字典。
-        /// 僅會覆寫字典中已存在的鍵，不會新增新的鍵值。
-        /// </summary>
-        public static void WriteTo(this object sourceObj, Dictionary<string, string> outputDic)
-            => SheetHelper.WriteTo(sourceObj, outputDic);
-
         /// <summary>
         /// 將物件資料依頁面欄位順序組成字串陣列，用於「新增一筆列」的情境（可直接用於 AddRowAndSetCells.Request）。
         /// </summary>
