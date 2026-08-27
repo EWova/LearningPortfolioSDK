@@ -188,6 +188,28 @@ namespace EWova.LearningPortfolio
         }
 
         /// <summary>
+        /// 建立一個新的 <typeparamref name="T"/> 執行個體，並從字典讀取資料填入（等同於 <c>new T()</c> 後再呼叫 <see cref="ReadFrom{T}"/>）。
+        /// 注意：每次呼叫都會配置新物件，會產生 GC 配置；若需重複讀取多筆資料，建議改用 <see cref="ReadFrom{T}"/> 搭配既有物件重複利用，以避免額外 GC。
+        /// </summary>
+        public static T CreateFrom<T>(Dictionary<string, string> source) where T : new()
+        {
+            T destinationObj = new();
+            ReadFrom(source, ref destinationObj);
+            return destinationObj;
+        }
+
+        /// <summary>
+        /// 建立一個新的 <typeparamref name="T"/> 執行個體，並從資料列讀取資料填入（等同於 <c>new T()</c> 後再呼叫 <see cref="ReadFromRow{T}"/>）。
+        /// 注意：每次呼叫都會配置新物件，會產生 GC 配置；若需重複讀取多筆資料，建議改用 <see cref="ReadFromRow{T}"/> 搭配既有物件重複利用，以避免額外 GC。
+        /// </summary>
+        public static T CreateFromRow<T>(LearningPortfolio.Row sourceRow) where T : new()
+        {
+            T destinationObj = new();
+            ReadFromRow(sourceRow, ref destinationObj);
+            return destinationObj;
+        }
+
+        /// <summary>
         /// 取得欄位對應的 ColumnAttribute 標籤名稱
         /// </summary>
         public static string GetColumnLabel<T>(string fieldName)
@@ -282,5 +304,19 @@ namespace EWova.LearningPortfolio
         /// </summary>
         public static void ReadFromRow<T>(this LearningPortfolio.Row sourceRow, ref T destinationObj)
             => SheetHelper.ReadFromRow(sourceRow, ref destinationObj);
+
+        /// <summary>
+        /// 建立一個新的 <typeparamref name="T"/> 執行個體，並從字典讀取資料填入。
+        /// 注意：每次呼叫都會配置新物件，會產生 GC 配置；重複讀取多筆資料時建議改用 <see cref="ReadFrom{T}"/> 重複利用既有物件。
+        /// </summary>
+        public static T CreateFrom<T>(this Dictionary<string, string> source) where T : new()
+            => SheetHelper.CreateFrom<T>(source);
+
+        /// <summary>
+        /// 建立一個新的 <typeparamref name="T"/> 執行個體，並從資料列讀取資料填入。
+        /// 注意：每次呼叫都會配置新物件，會產生 GC 配置；重複讀取多筆資料時建議改用 <see cref="ReadFromRow{T}"/> 重複利用既有物件。
+        /// </summary>
+        public static T CreateFromRow<T>(this LearningPortfolio.Row sourceRow) where T : new()
+            => SheetHelper.CreateFromRow<T>(sourceRow);
     }
 }

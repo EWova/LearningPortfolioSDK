@@ -162,6 +162,15 @@ string[] cells = record.WriteToRow(someExistingRow);
 someRow.ReadFromRow(ref readBack);
 ```
 
+`ReadFrom`/`ReadFromRow` reuse a caller-supplied instance (no allocation). If you'd rather have a new
+instance allocated for you, use `CreateFrom`/`CreateFromRow` (requires `T : new()`) — convenient, but
+each call allocates a new object, so prefer `ReadFrom`/`ReadFromRow` with a reused instance in hot loops:
+
+```csharp
+MyRecord readBack = SheetHelper.CreateFromRow<MyRecord>(someRow);
+// or: MyRecord readBack = someRow.CreateFromRow<MyRecord>();
+```
+
 ## Blocking reconnect while a session is active
 
 ```csharp
