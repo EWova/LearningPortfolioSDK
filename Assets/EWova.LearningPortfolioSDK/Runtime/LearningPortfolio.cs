@@ -1128,7 +1128,12 @@ namespace EWova.LearningPortfolio
                     async UniTask LoadCurrentPageAllColumnSummary(CancellationToken ct = default)
                     {
                         if (page.Columns.Length == 0)
+                        {
+                            // 若該頁籤沒有欄位，則直接將所有欄位的總結設為空字串
+                            foreach (var col in page.Columns)
+                                col.CellsSummary = string.Empty;
                             return;
+                        }
 
                         Api.ColumnSummary[] rawColumnSummaries;
                         try
@@ -1159,12 +1164,16 @@ namespace EWova.LearningPortfolio
                         }
 
                         if (rawColumnSummaries == null || rawColumnSummaries.Length == 0)
+                        {
+                            foreach (var col in page.Columns)
+                                col.CellsSummary = string.Empty;
                             return;
+                        }
 
                         for (int i = 0; i < page.Columns.Length; i++)
                         {
                             int CURRENT_COLUMN = i;
-                            Api.ColumnSummary rawColumnSummary = rawColumnSummaries[i];
+                            Api.ColumnSummary rawColumnSummary = rawColumnSummaries[CURRENT_COLUMN];
                             page.Columns[CURRENT_COLUMN].CellsSummary = rawColumnSummary.DisplayValue;
                         }
                     }
@@ -1183,10 +1192,10 @@ namespace EWova.LearningPortfolio
 
                 async UniTask LoadFirstPageColumnSummary(CancellationToken ct = default)
                 {
-                    if (RESULT.Pages.Length == 0 || RESULT.Pages[0].Columns.Length < 2)
+                    if (RESULT.Pages.Length == 0)
                     {
                         if (Logger.WarnEnabled)
-                            Logger.Warn("首頁欄位不足兩欄（可能是頁籤設定變更），略過首頁欄位總結的計算。");
+                            Logger.Warn("首頁欄位不足，略過首頁欄位總結的計算。");
                         return;
                     }
 
@@ -1197,10 +1206,12 @@ namespace EWova.LearningPortfolio
                         if (page.Index == 0)
                             continue;
 
+                        // 個別頁總結
                         cells[page.Index - 1].Text = page.Columns[0].CellsSummary;
                     }
                     try
                     {
+                        // 總覽頁總結
                         Api.ColumnSummary rawColumnSummary = await m_apiClient.GetPageColumnSummaryAsync
                         (
                             sheetId: RESULT.SheetId,
