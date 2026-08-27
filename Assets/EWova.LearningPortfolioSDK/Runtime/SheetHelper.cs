@@ -110,11 +110,11 @@ namespace EWova.LearningPortfolio
         }
 
         /// <summary>
-        /// 將物件資料依 <paramref name="targetPage"/> 的欄位順序組成字串陣列，用於「新增一筆列」的情境
+        /// 將物件欄位值依 <paramref name="targetPage"/> 的欄位順序對齊，組成字串陣列，用於「新增一筆列」的情境
         /// （可直接用於 <c>AddRowAndSetCells.Request</c>），故不需要（也不會用到）既有的 Row。
         /// 物件沒有對應到的欄位，其值為 null。
         /// </summary>
-        public static string[] WriteToNewRow(object sourceObj, LearningPortfolio.Page targetPage)
+        public static string[] AlignToColumns(object sourceObj, LearningPortfolio.Page targetPage)
         {
             if (sourceObj == null)
                 throw new ArgumentNullException(nameof(sourceObj));
@@ -189,7 +189,7 @@ namespace EWova.LearningPortfolio
         /// <summary>
         /// 預先建立並快取 <typeparamref name="T"/> 的欄位對應資訊。
         /// 欄位對應本來就會在第一次使用該型別時自動快取，此方法僅用於「明確指定時機」預先付出這筆一次性的反射成本
-        /// （例如在 Loading 畫面呼叫，避免第一次 WriteToNewRow/ReadFrom 等操作剛好發生在遊玩當下造成的 hitch）。
+        /// （例如在 Loading 畫面呼叫，避免第一次 AlignToColumns/ReadFrom 等操作剛好發生在遊玩當下造成的 hitch）。
         /// </summary>
         public static void WarmUp<T>() => RetrieveFieldMappings(typeof(T));
 
@@ -301,10 +301,10 @@ namespace EWova.LearningPortfolio
     public static class SheetHelperExtensions
     {
         /// <summary>
-        /// 將物件資料依頁面欄位順序組成字串陣列，用於「新增一筆列」的情境（可直接用於 AddRowAndSetCells.Request）。
+        /// 將物件欄位值依頁面欄位順序對齊，組成字串陣列，用於「新增一筆列」的情境（可直接用於 AddRowAndSetCells.Request）。
         /// </summary>
-        public static string[] WriteToNewRow(this object sourceObj, LearningPortfolio.Page targetPage)
-            => SheetHelper.WriteToNewRow(sourceObj, targetPage);
+        public static string[] AlignToColumns(this object sourceObj, LearningPortfolio.Page targetPage)
+            => SheetHelper.AlignToColumns(sourceObj, targetPage);
 
         /// <summary>
         /// 從字典讀取資料到物件
