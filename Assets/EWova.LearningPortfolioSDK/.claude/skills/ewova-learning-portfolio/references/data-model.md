@@ -152,7 +152,15 @@ SheetHelper.ReadFromRow(someRow, ref readBack);
 ```
 
 `SheetHelper.TypeFormatters` covers `bool/byte/char/double/int/float/decimal/string/DateTime/TimeSpan`
-with round-trippable formatting; unregistered types fall back to `Convert.ChangeType`.
+with round-trippable formatting. `enum` fields are also round-trippable (formatted via `ToString()`,
+parsed via `Enum.Parse`); other unregistered types fall back to `Convert.ChangeType`.
+
+Extension-method style is also available via `SheetHelperExtensions`:
+
+```csharp
+string[] cells = record.WriteToRow(someExistingRow);
+someRow.ReadFromRow(ref readBack);
+```
 
 ## Blocking reconnect while a session is active
 

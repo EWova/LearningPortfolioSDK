@@ -71,13 +71,14 @@ namespace EWova.LearningPortfolio
 
         public static string FormatAny(object obj)
         {
-            if (obj == null) return
-                    string.Empty;
+            if (obj == null)
+                return string.Empty;
 
             var type = obj.GetType();
             if (TypeFormatters.TryGetValue(type, out var funcs))
                 return funcs.FormatFunc(obj);
 
+            // Enum 沒有登記在 TypeFormatters 中，ToString() 已可輸出可逆格式（名稱），交由 ParseAny 用 Enum.Parse 還原。
             return obj.ToString();
         }
 
@@ -93,13 +94,26 @@ namespace EWova.LearningPortfolio
             if (TypeFormatters.TryGetValue(type, out var funcs))
                 return funcs.ParseFunc(str);
 
+            if (type.IsEnum)
+            {
+                try
+                {
+                    return Enum.Parse(type, str, true);
+                }
+                catch (Exception)
+                {
+                    return Activator.CreateInstance(type);
+                }
+            }
+
             return Convert.ChangeType(str, type, CultureInfo.InvariantCulture);
         }
 
         /// <summary>
-        /// 將物件資料寫入字典
+        /// 將物件資料寫入字典。
+        /// 僅會覆寫 <paramref name="outputDic"/> 中已存在的鍵，不會新增新的鍵值。
         /// </summary>
-        public static void WriteTo(in object sourceObj, Dictionary<string, string> outputDic)
+        public static void WriteTo(object sourceObj, Dictionary<string, string> outputDic)
         {
             if (sourceObj == null)
                 throw new ArgumentNullException(nameof(sourceObj));
@@ -107,27 +121,41 @@ namespace EWova.LearningPortfolio
             if (outputDic == null)
                 throw new ArgumentNullException(nameof(outputDic));
 
-            var type = sourceObj.GetType();
-            IEnumerable<FieldInfo> props = type.GetFields().Where(p => Attribute.IsDefined(p, typeof(ColumnAttribute)));
-            foreach (var prop in props)
+            var mapping = RetrieveFieldMappings(sourceObj.GetType());
+            foreach (var (field, label) in mapping.Fields)
             {
-                ColumnAttribute attr = (ColumnAttribute)Attribute.GetCustomAttribute(prop, typeof(ColumnAttribute));
-                object value = prop.GetValue(sourceObj);
-                string strValue = FormatAny(value);
-                string key = attr.CustomLabel ?? prop.Name;
-                if (outputDic.ContainsKey(key))
-                    outputDic[key] = strValue;
+                if (!outputDic.ContainsKey(label))
+                    continue;
+
+                object value = field.GetValue(sourceObj);
+                outputDic[label] = FormatAny(value);
             }
         }
 
         /// <summary>
-        /// 將物件資料寫入資料列
+        /// 將物件資料寫入資料列，回傳依資料列儲存格順序排列的字串陣列（可直接用於 SetCells.Request）。
+        /// 資料列中沒有對應物件欄位的儲存格，其值為 null。
         /// </summary>
-        public static string[] WriteToRow(in object sourceObj, LearningPortfolio.Row targetRow)
+        public static string[] WriteToRow(object sourceObj, LearningPortfolio.Row targetRow)
         {
-            Dictionary<string, string> result = targetRow.Cells.ToDictionary(k => k.ColumnLabel, v => (string)null);
-            WriteTo(sourceObj, result);
-            return result.Values.ToArray();
+            if (sourceObj == null)
+                throw new ArgumentNullException(nameof(sourceObj));
+
+            if (targetRow == null)
+                throw new ArgumentNullException(nameof(targetRow));
+
+            var mapping = RetrieveFieldMappings(sourceObj.GetType());
+
+            var valueByLabel = new Dictionary<string, string>(mapping.Fields.Length);
+            foreach (var (field, label) in mapping.Fields)
+                valueByLabel[label] = FormatAny(field.GetValue(sourceObj));
+
+            var cells = targetRow.Cells;
+            var result = new string[cells.Count];
+            for (int i = 0; i < cells.Count; i++)
+                valueByLabel.TryGetValue(cells[i].ColumnLabel, out result[i]);
+
+            return result;
         }
 
         /// <summary>
@@ -164,47 +192,57 @@ namespace EWova.LearningPortfolio
         /// </summary>
         public static string GetColumnLabel<T>(string fieldName)
         {
-            var cache = RetrieveFieldMappings(typeof(T));
+            var mapping = RetrieveFieldMappings(typeof(T));
 
-            if (cache == null)
+            if (mapping.Fields.Length == 0)
                 throw new ArgumentException($"Type {typeof(T).FullName} has no fields with ColumnAttribute.");
 
-            var mapping = cache.FirstOrDefault(f => f.field.Name == fieldName);
-
-            if (mapping.field == null)
+            if (!mapping.LabelByFieldName.TryGetValue(fieldName, out var label))
                 throw new ArgumentException($"Field '{fieldName}' not found in type {typeof(T).FullName} or it does not have ColumnAttribute.");
 
-            return mapping.name;
+            return label;
         }
 
-        private readonly static Dictionary<Type, (FieldInfo field, string name)[]> s_typeFieldCache = new();
-        private static (FieldInfo field, string name)[] RetrieveFieldMappings(Type type)
+        private readonly struct FieldMapping
         {
-            if (!s_typeFieldCache.TryGetValue(type, out (FieldInfo field, string name)[] propsCache))
+            public readonly (FieldInfo field, string label)[] Fields;
+            public readonly Dictionary<string, string> LabelByFieldName;
+
+            public FieldMapping((FieldInfo field, string label)[] fields, Dictionary<string, string> labelByFieldName)
             {
-                propsCache = type.GetFields()
-                    .Where(p => Attribute.IsDefined(p, typeof(ColumnAttribute)))
-                    .Select(f =>
-                    {
-                        var attr = Attribute.GetCustomAttribute(f, typeof(ColumnAttribute)) as ColumnAttribute;
-                        return (f, attr?.CustomLabel ?? f.Name);
-                    })
+                Fields = fields;
+                LabelByFieldName = labelByFieldName;
+            }
+        }
+
+        private readonly static Dictionary<Type, FieldMapping> s_typeFieldCache = new();
+        private static FieldMapping RetrieveFieldMappings(Type type)
+        {
+            if (!s_typeFieldCache.TryGetValue(type, out var mapping))
+            {
+                var fields = type.GetFields()
+                    .Select(f => (field: f, attr: Attribute.GetCustomAttribute(f, typeof(ColumnAttribute)) as ColumnAttribute))
+                    .Where(x => x.attr != null)
+                    .Select(x => (x.field, label: x.attr.CustomLabel ?? x.field.Name))
                     .ToArray();
 
-                s_typeFieldCache[type] = propsCache;
+                var labelByFieldName = fields.ToDictionary(f => f.field.Name, f => f.label);
+
+                mapping = new FieldMapping(fields, labelByFieldName);
+                s_typeFieldCache[type] = mapping;
             }
 
-            return propsCache;
+            return mapping;
         }
         private static void Internal_ReadFrom<T>(Dictionary<string, string> source, ref T destinationObj)
         {
             object boxed = destinationObj;
 
-            var cache = RetrieveFieldMappings(typeof(T));
+            var mapping = RetrieveFieldMappings(typeof(T));
 
-            foreach (var (field, name) in cache)
+            foreach (var (field, label) in mapping.Fields)
             {
-                if (!source.TryGetValue(name, out var strValue))
+                if (!source.TryGetValue(label, out var strValue))
                     continue;
 
                 object value = ParseAny(field.FieldType, strValue);
@@ -213,5 +251,36 @@ namespace EWova.LearningPortfolio
 
             destinationObj = (T)boxed;
         }
+    }
+
+    /// <summary>
+    /// <see cref="SheetHelper"/> 的擴充方法，提供更貼近物件導向風格的呼叫方式。
+    /// </summary>
+    public static class SheetHelperExtensions
+    {
+        /// <summary>
+        /// 將物件資料寫入字典。
+        /// 僅會覆寫字典中已存在的鍵，不會新增新的鍵值。
+        /// </summary>
+        public static void WriteTo(this object sourceObj, Dictionary<string, string> outputDic)
+            => SheetHelper.WriteTo(sourceObj, outputDic);
+
+        /// <summary>
+        /// 將物件資料寫入資料列，回傳依資料列儲存格順序排列的字串陣列（可直接用於 SetCells.Request）。
+        /// </summary>
+        public static string[] WriteToRow(this object sourceObj, LearningPortfolio.Row targetRow)
+            => SheetHelper.WriteToRow(sourceObj, targetRow);
+
+        /// <summary>
+        /// 從字典讀取資料到物件
+        /// </summary>
+        public static void ReadFrom<T>(this Dictionary<string, string> source, ref T destinationObj)
+            => SheetHelper.ReadFrom(source, ref destinationObj);
+
+        /// <summary>
+        /// 從資料列讀取資料到物件
+        /// </summary>
+        public static void ReadFromRow<T>(this LearningPortfolio.Row sourceRow, ref T destinationObj)
+            => SheetHelper.ReadFromRow(sourceRow, ref destinationObj);
     }
 }
