@@ -83,6 +83,9 @@ namespace EWova.LearningPortfolio
             m_processing = false;
         }
 
+        /// <summary>
+        /// 取消所有排隊中與執行中的請求。
+        /// </summary>
         public void CancelAll()
         {
             var old = m_cts;
@@ -105,6 +108,9 @@ namespace EWova.LearningPortfolio
             m_processing = false;
         }
 
+        /// <summary>
+        /// 取消所有請求並釋放資源。
+        /// </summary>
         public void Dispose()
         {
             m_cts.Cancel();
@@ -129,7 +135,14 @@ namespace EWova.LearningPortfolio
             LearningPortfolioApiException = ex;
         }
 
+        /// <summary>
+        /// 建立成功結果。
+        /// </summary>
         public static NetServiceAsyncRespond ResultSuccess() => new(AsyncRespondStatus.Success, null);
+        /// <summary>
+        /// 建立失敗結果。
+        /// </summary>
+        /// <param name="ex">失敗原因。</param>
         public static NetServiceAsyncRespond ResultFailed(LearningPortfolioApiException ex) => new(AsyncRespondStatus.Failed, ex);
     }
 
@@ -149,7 +162,15 @@ namespace EWova.LearningPortfolio
             LearningPortfolioApiException = ex;
         }
 
+        /// <summary>
+        /// 建立成功結果。
+        /// </summary>
+        /// <param name="data">回應資料。</param>
         public static NetServiceAsyncRespond<T> ResultSuccess(T data) => new(data, AsyncRespondStatus.Success, null);
+        /// <summary>
+        /// 建立失敗結果。
+        /// </summary>
+        /// <param name="ex">失敗原因。</param>
         public static NetServiceAsyncRespond<T> ResultFailed(LearningPortfolioApiException ex) => new(default, AsyncRespondStatus.Failed, ex);
     }
 
@@ -167,6 +188,12 @@ namespace EWova.LearningPortfolio
         private readonly Func<TRequest, CancellationToken, UniTask> m_func;
         private readonly Func<TRequest, CancellationToken, UniTask> m_onDone;
 
+        /// <summary>
+        /// 建立一個無回應資料的網路服務指令。
+        /// </summary>
+        /// <param name="requestHandler">請求處理器。</param>
+        /// <param name="func">實際發送請求的邏輯。</param>
+        /// <param name="onRespond">成功後的額外處理（選填）。</param>
         public NetServiceCommand(
             NetServiceRequestHandler requestHandler,
             Func<TRequest, CancellationToken, UniTask> func,
@@ -177,7 +204,9 @@ namespace EWova.LearningPortfolio
             m_onDone = onRespond;
         }
 
-        private async UniTask<NetServiceAsyncRespond> RunAsync(TRequest request, CancellationToken ct)
+        private async UniTask<NetServiceAsyncRespond> RunAsync(
+            TRequest request,
+            CancellationToken ct)
         {
             try
             {
@@ -194,9 +223,28 @@ namespace EWova.LearningPortfolio
             }
         }
 
-        public UniTask<NetServiceAsyncRespond> RequestAsync(TRequest request, CancellationToken cancellationToken = default)
+        /// <summary>
+        /// 以非同步方式送出請求。
+        /// </summary>
+        /// <param name="request">請求內容。</param>
+        /// <param name="cancellationToken">取消權杖。</param>
+        public UniTask<NetServiceAsyncRespond> RequestAsync(
+            TRequest request,
+            CancellationToken cancellationToken = default)
             => RequestHandler.EnqueueAsync(token => RunAsync(request, token), cancellationToken);
 
+        /// <summary>
+        /// 以 Callback 方式送出請求。
+        /// </summary>
+        /// <param name="request">請求內容。</param>
+        /// <param name="onSuccess">成功時的回呼。</param>
+        /// <param name="onFailure">失敗時的回呼，附帶錯誤訊息。</param>
+        /// <param name="onException">
+        /// 非預期例外的回呼。API 錯誤與請求取消（<see cref="OperationCanceledException"/>）都會由
+        /// <paramref name="onFailure"/> 回報，不會進到這裡；若持續收到 onException，通常代表問題並非出在呼叫端，
+        /// 可聯絡 EWova 官方支援協助排查。
+        /// </param>
+        /// <param name="cancellationToken">取消權杖。</param>
         public void Request(
             TRequest request,
             Action onSuccess,
@@ -227,6 +275,12 @@ namespace EWova.LearningPortfolio
         private readonly Func<TRequest, CancellationToken, UniTask<TRespond>> m_func;
         private readonly Func<(TRequest Request, TRespond Respond), CancellationToken, UniTask> m_onRespond;
 
+        /// <summary>
+        /// 建立一個有回應資料的網路服務。
+        /// </summary>
+        /// <param name="requestHandler">請求處理器。</param>
+        /// <param name="func">實際發送請求並取得回應資料的邏輯。</param>
+        /// <param name="onRespond">成功後的額外處理（選填）。</param>
         public NetService(
             NetServiceRequestHandler requestHandler,
             Func<TRequest, CancellationToken, UniTask<TRespond>> func,
@@ -237,7 +291,9 @@ namespace EWova.LearningPortfolio
             m_onRespond = onRespond;
         }
 
-        private async UniTask<NetServiceAsyncRespond<TRespond>> RunAsync(TRequest request, CancellationToken ct)
+        private async UniTask<NetServiceAsyncRespond<TRespond>> RunAsync(
+            TRequest request, 
+            CancellationToken ct)
         {
             try
             {
@@ -254,9 +310,28 @@ namespace EWova.LearningPortfolio
             }
         }
 
-        public UniTask<NetServiceAsyncRespond<TRespond>> RequestAsync(TRequest request, CancellationToken cancellationToken = default)
+        /// <summary>
+        /// 以非同步方式送出請求。
+        /// </summary>
+        /// <param name="request">請求內容。</param>
+        /// <param name="cancellationToken">取消權杖。</param>
+        public UniTask<NetServiceAsyncRespond<TRespond>> RequestAsync(
+            TRequest request,
+            CancellationToken cancellationToken = default)
             => RequestHandler.EnqueueAsync(token => RunAsync(request, token), cancellationToken);
 
+        /// <summary>
+        /// 以 Callback 方式送出請求。
+        /// </summary>
+        /// <param name="request">請求內容。</param>
+        /// <param name="onSuccess">成功時的回呼，附帶回應資料。</param>
+        /// <param name="onFailure">失敗時的回呼，附帶錯誤訊息。</param>
+        /// <param name="onException">
+        /// 非預期例外的回呼。API 錯誤與請求取消（<see cref="OperationCanceledException"/>）都會由
+        /// <paramref name="onFailure"/> 回報，不會進到這裡；若持續收到 onException，通常代表問題並非出在呼叫端，
+        /// 可聯絡 EWova 官方支援協助排查。
+        /// </param>
+        /// <param name="cancellationToken">取消權杖。</param>
         public void Request(
             TRequest request,
             Action<TRespond> onSuccess,
@@ -284,6 +359,12 @@ namespace EWova.LearningPortfolio
 
     public sealed class NetServiceVoid : NetServiceCommand<AsyncUnit>
     {
+        /// <summary>
+        /// 建立一個無請求內容、無回應資料的網路服務指令。
+        /// </summary>
+        /// <param name="handler">請求處理器。</param>
+        /// <param name="func">實際發送請求的邏輯。</param>
+        /// <param name="onRespond">成功後的額外處理（選填）。</param>
         public NetServiceVoid(NetServiceRequestHandler handler, Func<CancellationToken, UniTask> func, Func<CancellationToken, UniTask> onRespond = null)
             : base(handler,
                 (_, ct) => func(ct),
@@ -291,15 +372,41 @@ namespace EWova.LearningPortfolio
         {
         }
 
-        public UniTask<NetServiceAsyncRespond> RequestAsync(CancellationToken ct = default)
-            => RequestAsync(AsyncUnit.Default, ct);
+        /// <summary>
+        /// 以非同步方式送出請求。
+        /// </summary>
+        /// <param name="ct">取消權杖。</param>
+        public UniTask<NetServiceAsyncRespond> RequestAsync(
+            CancellationToken ct = default)
+            => base.RequestAsync(AsyncUnit.Default, ct);
 
-        public void Request(Action onSuccess, Action<string> onFailure, Action<Exception> onException = null, CancellationToken ct = default)
-            => Request(AsyncUnit.Default, onSuccess, onFailure, onException, ct);
+        /// <summary>
+        /// 以 Callback 方式送出請求。
+        /// </summary>
+        /// <param name="onSuccess">成功時的回呼。</param>
+        /// <param name="onFailure">失敗時的回呼，附帶錯誤訊息。</param>
+        /// <param name="onException">
+        /// 非預期例外的回呼。API 錯誤與請求取消（<see cref="OperationCanceledException"/>）都會由
+        /// <paramref name="onFailure"/> 回報，不會進到這裡；若持續收到 onException，通常代表問題並非出在呼叫端，
+        /// 可聯絡 EWova 官方支援協助排查。
+        /// </param>
+        /// <param name="ct">取消權杖。</param>
+        public void Request(
+            Action onSuccess,
+            Action<string> onFailure,
+            Action<Exception> onException = null,
+            CancellationToken ct = default)
+            => base.Request(AsyncUnit.Default, onSuccess, onFailure, onException, ct);
     }
 
     public sealed class NetServiceRequest<TRequest> : NetServiceCommand<TRequest>
     {
+        /// <summary>
+        /// 建立一個有請求內容、無回應資料的網路服務指令。
+        /// </summary>
+        /// <param name="handler">請求處理器。</param>
+        /// <param name="func">實際發送請求的邏輯。</param>
+        /// <param name="onRespond">成功後的額外處理（選填）。</param>
         public NetServiceRequest(NetServiceRequestHandler handler, Func<TRequest, CancellationToken, UniTask> func, Func<TRequest, CancellationToken, UniTask> onRespond = null)
             : base(handler, func, onRespond)
         {
@@ -308,6 +415,12 @@ namespace EWova.LearningPortfolio
 
     public sealed class NetServiceRespond<TRespond> : NetService<AsyncUnit, TRespond>
     {
+        /// <summary>
+        /// 建立一個無請求內容、有回應資料的網路服務。
+        /// </summary>
+        /// <param name="handler">請求處理器。</param>
+        /// <param name="func">實際發送請求並取得回應資料的邏輯。</param>
+        /// <param name="onRespond">成功後的額外處理（選填）。</param>
         public NetServiceRespond(NetServiceRequestHandler handler, Func<CancellationToken, UniTask<TRespond>> func, Func<TRespond, CancellationToken, UniTask> onRespond = null)
             : base(handler,
                 (_, ct) => func(ct),
@@ -315,15 +428,40 @@ namespace EWova.LearningPortfolio
         {
         }
 
+        /// <summary>
+        /// 以非同步方式送出請求。
+        /// </summary>
+        /// <param name="ct">取消權杖。</param>
         public UniTask<NetServiceAsyncRespond<TRespond>> RequestAsync(CancellationToken ct = default)
-            => RequestAsync(AsyncUnit.Default, ct);
+            => base.RequestAsync(AsyncUnit.Default, ct);
 
-        public void Request(Action<TRespond> onSuccess, Action<string> onFailure, Action<Exception> onException = null, CancellationToken ct = default)
-            => Request(AsyncUnit.Default, onSuccess, onFailure, onException, ct);
+        /// <summary>
+        /// 以 Callback 方式送出請求。
+        /// </summary>
+        /// <param name="onSuccess">成功時的回呼，附帶回應資料。</param>
+        /// <param name="onFailure">失敗時的回呼，附帶錯誤訊息。</param>
+        /// <param name="onException">
+        /// 非預期例外的回呼。API 錯誤與請求取消（<see cref="OperationCanceledException"/>）都會由
+        /// <paramref name="onFailure"/> 回報，不會進到這裡；若持續收到 onException，通常代表問題並非出在呼叫端，
+        /// 可聯絡 EWova 官方支援協助排查。
+        /// </param>
+        /// <param name="ct">取消權杖。</param>
+        public void Request(
+            Action<TRespond> onSuccess,
+            Action<string> onFailure,
+            Action<Exception> onException = null,
+            CancellationToken ct = default)
+            => base.Request(AsyncUnit.Default, onSuccess, onFailure, onException, ct);
     }
 
     public sealed class NetServiceRequestRespond<TRequest, TRespond> : NetService<TRequest, TRespond>
     {
+        /// <summary>
+        /// 建立一個有請求內容、也有回應資料的網路服務。
+        /// </summary>
+        /// <param name="handler">請求處理器。</param>
+        /// <param name="func">實際發送請求並取得回應資料的邏輯。</param>
+        /// <param name="onRespond">成功後的額外處理（選填）。</param>
         public NetServiceRequestRespond(
             NetServiceRequestHandler handler,
             Func<TRequest, CancellationToken, UniTask<TRespond>> func,
