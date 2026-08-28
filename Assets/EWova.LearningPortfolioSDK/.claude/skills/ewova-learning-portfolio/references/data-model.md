@@ -28,10 +28,14 @@ UserProjectRecordSheet (LearningPortfolio.LoggedUserProjectRecordSheet)
 Every `NetService*` write handle offers both:
 
 - **Callback style** — `.Request(..., onSuccess, onFailure, onException)` — never throws, queued
-  fire-and-forget.
+  fire-and-forget. Cancellation and any unexpected exception both route to `onFailure`/`onException`
+  respectively, same as expected backend failures.
 - **Awaitable style** — `.RequestAsync(...)` returning `NetServiceAsyncRespond` /
-  `NetServiceAsyncRespond<T>` with `.IsSuccess` / `.IsFailed` (+ `.ErrorMessage`) / `.IsException`
-  (+ `.Exception`) — also never throws; check the result instead of try/catch.
+  `NetServiceAsyncRespond<T>` with `.IsSuccess` / `.IsFailed` (+ `.ErrorMessage`,
+  `.LearningPortfolioApiException`) for expected backend/business failures — but this style **can
+  still throw**: cancellation (`OperationCanceledException`) and any other unexpected exception
+  propagate to the `await`er instead of being wrapped into the result, so wrap `await x.RequestAsync()`
+  in try/catch if you need to handle those. See "Exceptions" below.
 
 Both styles go through the same internal per-sheet queue (`NetServiceRequestHandler`), so calls never
 race each other for the same user's sheet.
@@ -51,15 +55,20 @@ if (sheet.FindProgressNodeByPath("單元1/關卡1", out LearningPortfolio.Progre
     );
 }
 
-// Awaitable style
+// Awaitable style — wrap in try/catch: RequestAsync() throws for cancellation/unexpected errors,
+// and only returns .IsFailed for an expected LearningPortfolioApiException (see "Exceptions" below).
 UniTask.Void(async () =>
 {
     if (sheet.FindProgressNodeByPath("單元1/關卡1", out var node3))
     {
-        NetServiceAsyncRespond result = await node3.SetMark.RequestAsync();
-        if (result.IsSuccess) Debug.Log("done");
-        else if (result.IsFailed) Debug.LogError(result.ErrorMessage);
-        else if (result.IsException) Debug.LogException(result.Exception);
+        try
+        {
+            NetServiceAsyncRespond result = await node3.SetMark.RequestAsync();
+            if (result.IsSuccess) Debug.Log("done");
+            else if (result.IsFailed) Debug.LogError(result.ErrorMessage);
+        }
+        catch (OperationCanceledException) { Debug.LogError("Request was canceled."); }
+        catch (Exception ex) { Debug.LogException(ex); }
     }
 });
 
@@ -344,7 +353,15 @@ before any network call.
 `LearningPortfolioApiException` (abstract) → `ApiProjectException`, `ApiSheetException`,
 `ApiUsageException`, `ApiLeaderboardException`. Each carries `.Action` (an `ApiAction` enum value) and
 `.SourceApiEx` (the underlying transport-level `ApiException` from the `com.ewova.core` networking
-layer, with `.IsServerError`). These only surface from the `Async` call sites that don't already funnel
-errors into `onFailure`/`onException` (e.g. `LearningPortfolio.ConnectAsync`,
-`LearningPortfolio.FetchUserProjectSheet`) — the per-field `NetService*.RequestAsync()` calls above
-never throw, they return a result struct instead.
+layer, with `.IsServerError`). These surface as thrown exceptions from the `Async` call sites that don't
+already funnel errors into `onFailure`/`onException` (e.g. `LearningPortfolio.ConnectAsync`,
+`LearningPortfolio.FetchUserProjectSheet`).
+
+The per-field `NetService*.RequestAsync()` calls are a bit different: a `LearningPortfolioApiException`
+there is caught internally and turned into a non-throwing `.IsFailed` result (with
+`.LearningPortfolioApiException`/`.ErrorMessage` populated) — but cancellation
+(`OperationCanceledException`, e.g. from `CancelAll()`/`Dispose()` on the sheet's write queue, or your
+own `CancellationToken`) and any other unexpected exception are **not** caught, and propagate as a real
+thrown exception to the `await`er. So `await someHandle.RequestAsync()` can still throw — check
+`.IsFailed` for expected backend errors, and wrap in try/catch for cancellation/unexpected errors (the
+callback-style `.Request(...)` handles both cases for you via `onFailure`/`onException` instead).

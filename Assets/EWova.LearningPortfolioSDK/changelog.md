@@ -1,4 +1,32 @@
 # Changelog
+## [2026.8.4] - 2026-08-28
+### Added
+- `SheetHelper` 新增 `WarmUp<T>()` / `WarmUp(params Type[])` 與 `Release<T>()` / `Release(params Type[])` / `ReleaseAll()`，可手動控制欄位對應反射快取的預熱與釋放時機
+- `SheetHelper` 新增 `CreateFrom<T>` / `CreateFromRow<T>`，可直接配置新物件並讀取資料（`ReadFrom` / `ReadFromRow` 則是重複利用既有物件、零額外配置的寫法）
+- `SheetHelper` 的 Enum 欄位現在也支援可逆序列化（寫入用 `ToString()`，讀回用 `Enum.Parse`）
+- 新增 `SheetHelperExtensions`，`WriteTo` / `AlignToColumns` / `ReadFrom` / `ReadFromRow` / `CreateFrom` / `CreateFromRow` 都可改用物件導向風格呼叫（例如 `record.AlignToColumns(page)`）
+- `UserProjectRecordSheet` 新增 `IsProgressCompleted` / `IsProgressMarked` / `IsProgressNodeCompleted` / `IsProgressNodeMarked`，呼叫端不用再自行分辨「原始標記」與「含父子關係的完成」兩種語意
+- `EWovaLoginPlane` 新增 `OnGameStartWithUserData` 事件，可直接取得登入的使用者資料
+- `NetServiceAsyncRespond` / `NetServiceAsyncRespond<T>` 新增 public 的 `Status`（`AsyncRespondStatus` enum）欄位
+- `package.json` 補上 `documentationUrl` / `changelogUrl` / `license` / `author` 等中繼資料
+### Changed
+- **(Breaking)** `SheetHelper.WriteToRow(object, LearningPortfolio.Row)` 改為 `SheetHelper.AlignToColumns(object, LearningPortfolio.Page)`：不再需要既有的 Row，改依 `Page` 的欄位順序組出陣列，專供 `AddRowAndSetCells` 新增一列使用；`WriteTo` / `AlignToColumns` 也移除了誤用的 `in` 參數修飾詞
+- **(Breaking)** Progress 相關 API 重新命名以統一語意：
+  - `ProgressNode.SetComplete` → `SetMark`、`IsCompletedSelf` → `IsMarked`、`CompleteTime` → `MarkedTime`（舊名稱保留為 `[Obsolete]` 別名）
+  - `Sheet.SetCompleteIncludeNonNode` / `SetUnmarkIncludeNonNode` → `SetProgressMark` / `SetProgressUnmark`（**無** Obsolete 別名，需自行改名）
+  - `Sheet.ProgressCompletionDic` → `AllMarkedProgressDic`（`ProgressCompletions` / `ProgressCompletionsLocalDateTime` 仍保留為 `[Obsolete]` 別名）
+  - 上述所有舊名稱的相容別名統一移至獨立的 `Runtime/Obsolete/` 檔案維護
+- **(Breaking)** `LearningPortfolio.CreateUserProjectRecordShower` 改名為 `CreateUserProjectSheetShower`，並新增未連線（`IsConnected == false`）時直接拋出例外的防呆（舊名稱保留為 `[Obsolete]` 別名）
+- **(Breaking)** `sheet.IsAnyNetSerivceRequesting`（原拼字錯誤）改名為 `IsAnyNetServiceRequesting`，**無**相容別名
+- **(Breaking)** 非同步（`RequestAsync`）呼叫風格的結果狀態從三態（`Success` / `Failed` / `Exception`）簡化為兩態（`Success` / `Failed`）：`LearningPortfolioApiException`（可預期的後端/業務錯誤）繼續回傳 `.IsFailed`、不拋出；但**其餘未預期的例外與請求取消（`OperationCanceledException`）現在會直接從 `RequestAsync()` 拋出**，不再靜默包裝進結果內（`.IsException` / `.Exception` 欄位已移除）。Callback 風格的 `.Request(...)` 行為不變，仍然透過 `onFailure` / `onException` 回報、不會拋出
+- 移除 BasicAssets 範例內建的 DeepLink 登入流程（`EWovaLoginPlane.DeepLink.cs`）與 asmdef 對應參照
+- 修正多處拼字錯誤：`bloackedMsg` → `blockedMsg`（`ConnectBlocker` 的 tuple 欄位）、UI 內部 `hoving` → `hovering`、`DisableOriginCloseButtonBehaviour` → `DisableOriginCloseButtonBehavior`
+- Editor 內「你正在使用測試 / 正式環境 API URL」提醒，改為在使用測試環境時顯示（原本方向相反，正式環境時才顯示）
+### Fixed
+- 修正 `ClearReadableData` 清除頁面資料後，該頁與總覽頁的欄位總結不會重新計算、殘留舊值的問題
+- 修正頁面沒有欄位、或後台回傳空的欄位總結時，欄位總結未被清空、殘留錯誤舊值的問題；並放寬總覽頁「欄位數需 ≥ 2」的判斷，避免只有單一總結欄位的總覽頁被誤判為「欄位不足」而略過總結計算
+- 修正取消網路請求（`CancelAll` / `Dispose`）時，佇列中尚未執行的請求可能導致呼叫端的 `await` 永遠停留在 pending 狀態、收不到取消結果的問題
+- 移除 BasicAssets 範例內建的 `LearningPortfolioProfile.asset`，避免使用者透過 Package Manager 重新匯入範例時，不小心覆寫並遺失自己專案已設定好的 APIKey
 ## [2026.8.3] - 2026-07-31
 ### Added
 - 新增 `LearningPortfolio.ConnectBlocker`，讓開發者可以自訂連線前置檢查邏輯（例如遊戲進行中不允許連線），檢查未通過時 `ConnectStatus` 會回傳新增的 `ConnectBlockedByCustomLogic` 狀態
