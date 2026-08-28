@@ -28,9 +28,9 @@ public static class ProjectScheme
         {
             [ProgressNode.完成教材] = "clear",
             [ProgressNode.登入開始探索教材] = "clear/start",
-            [ProgressNode.第一關] = "clear/levell",
-            [ProgressNode.第一關_體驗遊玩] = "clear/levell/play",
-            [ProgressNode.第一關_考試測驗] = "clear/levell/test",
+            [ProgressNode.第一關] = "clear/level1",
+            [ProgressNode.第一關_體驗遊玩] = "clear/level1/play",
+            [ProgressNode.第一關_考試測驗] = "clear/level1/test",
             [ProgressNode.第二關] = "clear/level2",
             [ProgressNode.第二關_測驗題] = "clear/level2/test",
             [ProgressNode.特殊測驗] = "clear/sp",
