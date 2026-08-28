@@ -138,8 +138,6 @@ namespace EWova.LearningPortfolio
         private CancellationTokenSource m_heartbeatCts;
 
         public static bool IsConnected => Instance != null;
-        [Obsolete("現在的 ConnectAsync 已經包含了認證檢查，請直接使用 IsConnected 屬性就可以知道是否已連線。")]
-        public static bool IsLoggedIn => Instance != null;
         public static bool IsHasUserProjectRecord => IsConnected && Instance.m_currentUserProjectSheet != null;
         public static bool IsUpdatingUserProjectRecord => IsConnected && Instance.m_isUpdatingUserSheet;
         public static UserData LoginUserData => IsConnected ? Instance.m_loginUserData : null;

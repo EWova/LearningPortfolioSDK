@@ -9,7 +9,7 @@ namespace EWova.LearningPortfolio
     // IL2CPP 在 Managed Stripping Level 較高時可能將其建構子/欄位視為未使用而裁剪，
     // 故加上 [Preserve] 避免打包後於裝置上反序列化失敗或欄位遺失。
     [Preserve]
-    public class Api
+    public partial class Api
     {
         [Preserve]
         public class VerifyProjectInfo
@@ -129,11 +129,8 @@ namespace EWova.LearningPortfolio
             public bool Success;
         }
         [Preserve]
-        public class SetProjectUsageRecordRequest
+        public partial class SetProjectUsageRecordRequest
         {
-            [Obsolete("已棄用從 Client 端 Mapping 裝置類型的方式")]
-            public int UsingDeviceId;
-
             public string OrgId;
             public string Platform;
             public string DeviceModel;
