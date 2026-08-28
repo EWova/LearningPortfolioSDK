@@ -508,8 +508,11 @@ namespace EWova.LearningPortfolio
             }
         }
 
-        public static ProjectRecordShower CreateUserProjectRecordShower(RectTransform rectTransform)
+        public static ProjectRecordShower CreateUserProjectSheetShower(RectTransform rectTransform)
         {
+            if (!IsConnected)
+                throw new Exception("尚未連線到學習歷程服務。請先 Connect。");
+
             ProjectRecordShower plane = ProjectRecordShower.InstantiatePlane(rectTransform);
 
             if (Instance.m_currentUserProjectSheet == null)

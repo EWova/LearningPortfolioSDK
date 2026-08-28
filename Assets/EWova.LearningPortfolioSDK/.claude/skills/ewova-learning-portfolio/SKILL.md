@@ -54,7 +54,7 @@ contains a fully worked reference project (`Template.cs`, `YourGame.cs`, `Player
 | `LearningPortfolio.ProgressNode` | One node in a completion tree (e.g. `"單元1/關卡1"`). Has `SetMark`/`SetUnmark` write handles. |
 | `LearningPortfolio.Page` / `Column` / `Row` / `Cell` | Spreadsheet-like data per page: fixed `Column`s, 1-indexed `Row`s, each `Row` has `SetCells`; `Page` has `AddRow`/`AddRowAndSetCells`/`ClearReadableData`. |
 | `NetServiceVoid` / `NetServiceRequest<T>` / `NetServiceRespond<T>` / `NetService<TRequest,TRespond>` | The write-handle types exposed as properties on the model above (`.Request(...)` callback style or `.RequestAsync(...)` awaitable style). All network writes for one sheet are serialized through one internal queue — you never race two writes on the same user. |
-| `ProjectRecordShower` | Read-only viewer UI (progress graph + spreadsheet) for the current user's record. Created via `LearningPortfolio.CreateUserProjectRecordShower(rectTransform)`, not instantiated directly. |
+| `ProjectRecordShower` | Read-only viewer UI (progress graph + spreadsheet) for the current user's record. Created via `LearningPortfolio.CreateUserProjectSheetShower(rectTransform)`, not instantiated directly. |
 | `Api.SetRowRequest` / `Api.SetColumnRequest` / `Api.AddRowResponse` | The only `Api.*` (raw backend DTO) types you construct yourself, as payloads to the `NetService*` calls above. Every other `Api.*` type (`Api.Project`, `Api.Sheet`, `Api.ProgressNode`, ...) is an internal wire-format DTO the SDK deserializes into the friendlier types above — don't construct or depend on them, except `Api.Project` which is directly exposed read-only as `LearningPortfolio.ConnectedProject`. |
 | `LearningPortfolioApiException` and subclasses (`ApiSheetException`, `ApiUsageException`, `ApiProjectException`, `ApiLeaderboardException`) | Thrown from awaited `*Async` calls on backend failure; carry `.Action`, `.SourceApiEx`. The `.Request(...)` callback style instead routes failures to `onFailure`/`onException` — it never throws. |
 
@@ -138,7 +138,8 @@ row-indexing gotcha, and more worked examples (progress nodes, page cells, `Conn
 ### 5. Showing the built-in record viewer UI
 
 ```csharp
-ProjectRecordShower shower = LearningPortfolio.CreateUserProjectRecordShower((RectTransform)someParent);
+// Throws if called before IsConnected is true.
+ProjectRecordShower shower = LearningPortfolio.CreateUserProjectSheetShower((RectTransform)someParent);
 // later:
 shower.Close();
 ```

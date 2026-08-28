@@ -2,10 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+using UnityEngine;
+
 namespace EWova.LearningPortfolio
 {
     public partial class LearningPortfolio
     {
+        [Obsolete("已棄用，請使用 CreateUserProjectSheetShower")]
+        public static ProjectRecordShower CreateUserProjectRecordShower(RectTransform rectTransform) => LearningPortfolio.CreateUserProjectSheetShower(rectTransform);
+
         public partial class UserProjectRecordSheet
         {
 
@@ -14,7 +19,7 @@ namespace EWova.LearningPortfolio
             [Obsolete("已棄用，請使用 ProgressAllCompleteMarkedDic")]
             public IReadOnlyList<DateTime> ProgressCompletionsLocalDateTime => AllMarkedProgressDic.Values.ToList();
         }
-        public partial class ProgressNode 
+        public partial class ProgressNode
         {
             [Obsolete("已棄用，請使用 SetMark")]
             public NetServiceVoid SetComplete => SetMark;

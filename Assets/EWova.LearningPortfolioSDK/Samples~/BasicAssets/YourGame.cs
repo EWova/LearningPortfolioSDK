@@ -42,7 +42,7 @@ namespace EWova.LearningPortfolio.BasicAssets
                     closeHandler.Close();
                     closeHandler = null;
                 }
-                closeHandler = LearningPortfolio.CreateUserProjectRecordShower((RectTransform)transform.parent.transform);
+                closeHandler = LearningPortfolio.CreateUserProjectSheetShower((RectTransform)transform.parent.transform);
             });
         }
 

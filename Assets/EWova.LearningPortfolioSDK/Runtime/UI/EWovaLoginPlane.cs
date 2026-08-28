@@ -90,7 +90,7 @@ namespace EWova.LearningPortfolio
             //檢視使用者學習歷程資料
             UI.CheckAccountViewLearningPortfolioButton.onClick.AddListener(() =>
             {
-                LearningPortfolio.CreateUserProjectRecordShower((RectTransform)transform);
+                LearningPortfolio.CreateUserProjectSheetShower((RectTransform)transform);
             });
             //按下開始遊戲按鈕
             UI.CheckAccountStartButton.onClick.AddListener(() =>
