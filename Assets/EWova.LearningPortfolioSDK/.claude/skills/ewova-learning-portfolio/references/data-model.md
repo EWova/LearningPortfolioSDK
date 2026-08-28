@@ -88,6 +88,20 @@ is the current API; `ProgressCompletions`/`ProgressCompletionsLocalDateTime` are
 kept for backward compatibility (formerly `ProgressCompletionDic`, itself renamed to
 `ProgressAllCompleteMarkedDic`).
 
+**`ProgressAllCompleteMarkedDic.ContainsKey(path)` ≠ `node.IsCompleted`** — they answer different
+questions:
+- `ProgressAllCompleteMarkedDic.ContainsKey(path)` (same check as `node.IsCompletedSelf`) is the raw
+  backend "有沒有被標記完成" flag for exactly that path — it ignores parent/child relationships
+  entirely.
+- `node.IsCompleted` additionally counts as complete if **any child** is marked complete, or if **any
+  ancestor** is marked complete — so a parent node can read as complete even though its own path was
+  never directly marked, purely because a child underneath it was.
+
+If you need "was this exact node explicitly marked" (e.g. deciding whether to fire `SetComplete` again,
+or to show a per-step checkmark that shouldn't light up just because a sibling/child finished), check
+the dictionary or `IsCompletedSelf`. If you need "should this be visually/logically treated as done given
+the whole tree" (e.g. gating whether the player can move on), use `IsCompleted`.
+
 ## Pages / rows / columns (1-indexed rows!)
 
 Before issuing a write, also guard on `LearningPortfolio.IsUpdatingUserProjectRecord` (in addition to
