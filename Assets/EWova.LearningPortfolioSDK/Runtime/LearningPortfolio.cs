@@ -818,7 +818,7 @@ namespace EWova.LearningPortfolio
                     onRespond: async (path, ct) =>
                     {
                         RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
-                        Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressCompletionDic;
+                        Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressAllCompleteMarkedDic;
                         obj.TryAdd(path, DateTime.Now);
                     }
                 );
@@ -834,7 +834,7 @@ namespace EWova.LearningPortfolio
                     onRespond: async (path, ct) =>
                     {
                         RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
-                        Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressCompletionDic;
+                        Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressAllCompleteMarkedDic;
                         obj.Remove(path);
                     }
                 );
@@ -881,7 +881,7 @@ namespace EWova.LearningPortfolio
                         onRespond: async (ct) =>
                         {
                             RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
-                            Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressCompletionDic;
+                            Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressAllCompleteMarkedDic;
                             obj.TryAdd(path, DateTime.Now);
                         }
                     );
@@ -897,7 +897,7 @@ namespace EWova.LearningPortfolio
                         onRespond: async (ct) =>
                         {
                             RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
-                            Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressCompletionDic;
+                            Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressAllCompleteMarkedDic;
                             obj.Remove(path);
                         }
                     );
@@ -939,7 +939,7 @@ namespace EWova.LearningPortfolio
                         items.Add(item.Path, item.DateTime.ToLocalTime());
                     }
 
-                    RESULT.ProgressCompletionDic = items;
+                    RESULT.ProgressAllCompleteMarkedDic = items;
                 }
                 #endregion
 
@@ -1313,7 +1313,7 @@ namespace EWova.LearningPortfolio
                 return;
 
             List<ProjectRecordShower> toRemove = null;
-            bool isUploading = m_currentUserProjectSheet.IsAnyNetSerivceRequesting;
+            bool isUploading = m_currentUserProjectSheet.IsAnyNetServiceRequesting;
             if (isUploading)
                 m_loggedUserProjectRecordShowerUpdated = true;
 

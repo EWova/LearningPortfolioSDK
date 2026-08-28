@@ -70,7 +70,7 @@ sheet.SetCompleteIncludeNonNode.Request("Extra/額外關卡",
     onException: (ex) => Debug.LogException(ex));
 
 // Reset all completion
-foreach (var path in sheet.ProgressCompletionDic.Keys)
+foreach (var path in sheet.ProgressAllCompleteMarkedDic.Keys)
 {
     sheet.SetUnmarkIncludeNonNode.Request(path,
         onSuccess: () => Debug.Log($"成功取消進度完成標記 {path}"),
@@ -83,16 +83,20 @@ foreach (var path in sheet.ProgressCompletionDic.Keys)
 `IsCompletedSelf` if you need only the node's own flag. `CompleteTime` gives the local completion
 timestamp if marked, else `null`.
 
-`sheet.ProgressCompletionDic` (`IReadOnlyDictionary<string, DateTime>`, path → completion time) is the
-current API; `ProgressCompletions`/`ProgressCompletionsLocalDateTime` are `[Obsolete]` aliases kept for
-backward compatibility.
+`sheet.ProgressAllCompleteMarkedDic` (`IReadOnlyDictionary<string, DateTime>`, path → completion time)
+is the current API; `ProgressCompletions`/`ProgressCompletionsLocalDateTime` are `[Obsolete]` aliases
+kept for backward compatibility (formerly `ProgressCompletionDic`, itself renamed to
+`ProgressAllCompleteMarkedDic`).
 
 ## Pages / rows / columns (1-indexed rows!)
 
 Before issuing a write, also guard on `LearningPortfolio.IsUpdatingUserProjectRecord` (in addition to
 `IsConnected`) — it's `true` while any write for the current user's sheet is still in flight, so you
 can disable a submit button / avoid firing a redundant write instead of just letting requests queue up
-silently.
+silently. Separately, `sheet.IsAnyNetServiceRequesting` is a per-sheet "is a write in flight" flag the
+samples poll each frame to drive an "uploading…" UI indicator (see `YourGame.cs`/`PlayerDataUploader.cs`)
+— it reflects the write queue itself, not the higher-level reconnect/reload state
+`IsUpdatingUserProjectRecord` tracks.
 
 ```csharp
 LearningPortfolio.Page targetPage = sheet.Pages[1]; // page index is 0-based (page 0 = overview)

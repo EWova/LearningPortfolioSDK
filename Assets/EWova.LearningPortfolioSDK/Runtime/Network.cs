@@ -27,7 +27,7 @@ namespace EWova.LearningPortfolio
         private CancellationTokenSource m_cts = new();
 
         public int PendingCount => m_queue.Count;
-        public bool IsAnyNetSerivceRequesting => m_processing;
+        public bool IsAnyNetServiceRequesting => m_processing;
 
         internal UniTask<T> EnqueueAsync<T>(Func<CancellationToken, UniTask<T>> run, CancellationToken externalToken)
         {

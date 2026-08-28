@@ -73,7 +73,7 @@ namespace EWova.LearningPortfolio
         /// <summary>
         /// 使用者專案記錄表單
         /// </summary>
-        public class UserProjectRecordSheet : IDisposable
+        public partial class UserProjectRecordSheet : IDisposable
         {
             public UserProjectRecordSheet(
                 Api.Project sourceProject,
@@ -86,18 +86,16 @@ namespace EWova.LearningPortfolio
             public readonly Api.Project SourceProject;
             public readonly NetServiceRequestHandler NetServiceHandler;
 
-
             public List<UnityEngine.Object> ManagedObjects = new();
 
             private bool disposedValue;
-
 
             public UserData Owner { get; internal set; }
 
             /// <summary>
             /// 是否有任何網路服務正在請求寫入資料
             /// </summary>
-            public bool IsAnyNetSerivceRequesting => NetServiceHandler.IsAnyNetSerivceRequesting;
+            public bool IsAnyNetServiceRequesting => NetServiceHandler.IsAnyNetServiceRequesting;
 
             /// <summary>
             /// 使用者專案記錄表單ID
@@ -150,45 +148,6 @@ namespace EWova.LearningPortfolio
             /// </item>
             /// <item>
             /// <description>
-            /// 路徑可能包含不存在的 Node ID，表示該節點已被刪除，但其完成紀錄仍會保留。
-            /// </description>
-            /// </item>
-            /// <item>
-            /// <description>
-            /// 可透過 <c>MarkNonNodeComplete</c> 記錄不存在的節點，作為隱藏的進度紀錄。
-            /// </description>
-            /// </item>
-            /// <item>
-            /// <description>
-            /// 字典的 Value 為本地時間。
-            /// </description>
-            /// </item>
-            /// </list>
-            /// </remarks>
-            /// <value>
-            /// Key 為已完成節點的路徑；Value 為該路徑的完成時間。
-            /// </value>
-            public IReadOnlyDictionary<string, DateTime> ProgressCompletionDic { get; internal set; }
-                = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
-
-            [Obsolete("已棄用，請使用 ProgressCompletionDic")]
-            public IReadOnlyList<string> ProgressCompletions => ProgressCompletionDic.Keys.ToList();
-            [Obsolete("已棄用，請使用 ProgressCompletionDic")]
-            public IReadOnlyList<DateTime> ProgressCompletionsLocalDateTime => ProgressCompletionDic.Values.ToList();
-
-            /// <summary>
-            /// 已完成的進度節點路徑清單，格式為「根節點/子節點1/子節點2/...」。
-            /// </summary>
-            /// <remarks>
-            /// 路徑具有以下特性：
-            /// <list type="bullet">
-            /// <item>
-            /// <description>
-            /// 路徑不分大小寫。
-            /// </description>
-            /// </item>
-            /// <item>
-            /// <description>
             /// 這個物件存放的路徑必定是後台存在的 Node ID
             /// </description>
             /// </item>
@@ -213,6 +172,40 @@ namespace EWova.LearningPortfolio
                 return true;
             }
 
+            /// <summary>
+            /// 已完成的進度節點路徑清單，格式為「根節點/子節點1/子節點2/...」。
+            /// 請注意，Key 會包含不存在的 <c>ProgressNode</c>，這表示該節點沒有對應的後台紀錄，但仍然保留字串形式的 Key
+            /// </summary>
+            /// <remarks>
+            /// 路徑具有以下特性：
+            /// <list type="bullet">
+            /// <item>
+            /// <description>
+            /// 路徑不分大小寫。
+            /// </description>
+            /// </item>
+            /// <item>
+            /// <description>
+            /// 路徑可能包含不存在的 Node ID，表示該節點已被刪除，但其完成紀錄仍會保留。
+            /// </description>
+            /// </item>
+            /// <item>
+            /// <description>
+            /// 可透過 <c>MarkNonNodeComplete</c> 記錄不存在的節點，作為隱藏的進度紀錄。
+            /// </description>
+            /// </item>
+            /// <item>
+            /// <description>
+            /// 字典的 Value 為本地時間。
+            /// </description>
+            /// </item>
+            /// </list>
+            /// </remarks>
+            /// <value>
+            /// Key 為已完成節點的路徑；Value 為該路徑的完成時間。
+            /// </value>
+            public IReadOnlyDictionary<string, DateTime> ProgressAllCompleteMarkedDic { get; internal set; }
+                = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
             /// <summary>
             /// [網路服務請求] 標記某路徑為已完成 (節點可能不存在，但允許標記完成。可能用於隱藏進度紀錄)
             /// </summary>
@@ -318,11 +311,11 @@ namespace EWova.LearningPortfolio
             /// <summary>
             /// 是否自己被標記為已完成
             /// </summary>
-            public bool IsCompletedSelf => RootSheet.ProgressCompletionDic.ContainsKey(Path);
+            public bool IsCompletedSelf => RootSheet.ProgressAllCompleteMarkedDic.ContainsKey(Path);
             /// <summary>
             /// 自己被標記為已完成的時間 (本地時間)
             /// </summary>
-            public DateTime? CompleteTime => RootSheet.ProgressCompletionDic.TryGetValue(Path, out var result) ? result : (DateTime?)null;
+            public DateTime? CompleteTime => RootSheet.ProgressAllCompleteMarkedDic.TryGetValue(Path, out var result) ? result : (DateTime?)null;
             /// <summary>
             /// 是否子節點被標記為已完成 (自己未完成且子節點有一個以上被標記為已完成即為完成)
             /// </summary>

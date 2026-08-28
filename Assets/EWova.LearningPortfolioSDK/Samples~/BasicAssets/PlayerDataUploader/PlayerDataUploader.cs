@@ -29,7 +29,7 @@ namespace EWova.LearningPortfolio.BasicAssets
 
             // 如果有任何網路服務正在請求寫入資料，顯示上傳中警告
             if (sheet != null)
-                UploadingAlert.SetActive(sheet.IsAnyNetSerivceRequesting);
+                UploadingAlert.SetActive(sheet.IsAnyNetServiceRequesting);
         }
 
         #region 1。分頁資料_清空方法
@@ -186,7 +186,7 @@ namespace EWova.LearningPortfolio.BasicAssets
             var Sheet = LearningPortfolio.LoggedUserProjectRecordSheet;
 
             // 移除所有完成進度
-            foreach (var path in Sheet.ProgressCompletionDic.Keys)
+            foreach (var path in Sheet.ProgressAllCompleteMarkedDic.Keys)
             {
                 Sheet.SetUnmarkIncludeNonNode.Request
                 (

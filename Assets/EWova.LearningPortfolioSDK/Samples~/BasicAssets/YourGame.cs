@@ -60,7 +60,7 @@ namespace EWova.LearningPortfolio.BasicAssets
 
             // 如果你好奇這個資料表是否有數值正在寫入雲端
             // 你可以這樣取得
-            bool isUploading = Sheet.IsAnyNetSerivceRequesting;
+            bool isUploading = Sheet.IsAnyNetServiceRequesting;
 
             // 取得所有頁面名稱
             string[] pageLabels = Sheet.GetPagesLabel();
@@ -84,7 +84,7 @@ namespace EWova.LearningPortfolio.BasicAssets
             }
 
             // [讀] 已完成的進度路徑與完成時間
-            foreach (var kvp in Sheet.ProgressCompletionDic)
+            foreach (var kvp in Sheet.ProgressAllCompleteMarkedDic)
             {
                 string completionPath = kvp.Key;
                 DateTime completionLocalDateTime = kvp.Value;
