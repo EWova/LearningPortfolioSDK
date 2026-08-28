@@ -168,7 +168,7 @@ namespace EWova.LearningPortfolio.BasicAssets
             if (!Sheet.FindProgressNodeByPath("clear/start", out LearningPortfolio.ProgressNode foundNode))
                 return;
 
-            foundNode.SetComplete.Request
+            foundNode.SetMark.Request
             (
                 onSuccess: () => { Debug.Log($"成功更新教材完成進度 {foundNode.Path}"); },
                 onFailure: (msg) => { Debug.LogError($"更新教材完成進度失敗 {foundNode.Path} 因為:" + msg); },
@@ -186,9 +186,9 @@ namespace EWova.LearningPortfolio.BasicAssets
             var Sheet = LearningPortfolio.LoggedUserProjectRecordSheet;
 
             // 移除所有完成進度
-            foreach (var path in Sheet.ProgressAllCompleteMarkedDic.Keys)
+            foreach (var path in Sheet.AllMarkedProgressDic.Keys)
             {
-                Sheet.SetUnmarkIncludeNonNode.Request
+                Sheet.SetProgressUnmark.Request
                 (
                     request: path,
                     onSuccess: () => { Debug.Log($"成功取消進度完成標記 {path}"); },

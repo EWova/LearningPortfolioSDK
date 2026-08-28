@@ -8,10 +8,10 @@ All examples below are taken almost verbatim from the package's own `Samples~/Ba
 ```
 UserProjectRecordSheet (LearningPortfolio.LoggedUserProjectRecordSheet)
 ├─ ProgressNode (tree)        e.g. path "單元1/關卡1"
-│   ├─ SetComplete : NetServiceVoid
-│   └─ SetUnmark   : NetServiceVoid
-├─ SetCompleteIncludeNonNode : NetServiceRequest<string>   // mark a path complete even if no node exists for it
-├─ SetUnmarkIncludeNonNode   : NetServiceRequest<string>
+│   ├─ SetMark   : NetServiceVoid
+│   └─ SetUnmark : NetServiceVoid
+├─ SetProgressMark   : NetServiceRequest<string>   // mark a path complete even if no node exists for it
+├─ SetProgressUnmark : NetServiceRequest<string>
 └─ Pages[] (fixed columns, 1-indexed rows)
     Page
     ├─ Columns[]              // fixed, 0-indexed
@@ -44,7 +44,7 @@ var sheet = LearningPortfolio.LoggedUserProjectRecordSheet;
 // Mark a known node complete
 if (sheet.FindProgressNodeByPath("單元1/關卡1", out LearningPortfolio.ProgressNode node1))
 {
-    node1.SetComplete.Request(
+    node1.SetMark.Request(
         onSuccess: () => Debug.Log("'單元1/關卡1' 成功標記進度完成"),
         onFailure: (msg) => Debug.LogError("標記進度完成失敗 因為:" + msg),
         onException: (ex) => Debug.LogException(ex)
@@ -56,7 +56,7 @@ UniTask.Void(async () =>
 {
     if (sheet.FindProgressNodeByPath("單元1/關卡1", out var node3))
     {
-        NetServiceAsyncRespond result = await node3.SetComplete.RequestAsync();
+        NetServiceAsyncRespond result = await node3.SetMark.RequestAsync();
         if (result.IsSuccess) Debug.Log("done");
         else if (result.IsFailed) Debug.LogError(result.ErrorMessage);
         else if (result.IsException) Debug.LogException(result.Exception);
@@ -64,15 +64,15 @@ UniTask.Void(async () =>
 });
 
 // Mark a path complete even when no ProgressNode exists for it (e.g. hidden/legacy progress)
-sheet.SetCompleteIncludeNonNode.Request("Extra/額外關卡",
+sheet.SetProgressMark.Request("Extra/額外關卡",
     onSuccess: () => Debug.Log("done"),
     onFailure: (msg) => Debug.LogError(msg),
     onException: (ex) => Debug.LogException(ex));
 
 // Reset all completion
-foreach (var path in sheet.ProgressAllCompleteMarkedDic.Keys)
+foreach (var path in sheet.AllMarkedProgressDic.Keys)
 {
-    sheet.SetUnmarkIncludeNonNode.Request(path,
+    sheet.SetProgressUnmark.Request(path,
         onSuccess: () => Debug.Log($"成功取消進度完成標記 {path}"),
         onFailure: (msg) => Debug.LogError(msg),
         onException: (ex) => Debug.LogException(ex));
@@ -80,27 +80,30 @@ foreach (var path in sheet.ProgressAllCompleteMarkedDic.Keys)
 ```
 
 `ProgressNode.IsCompleted` folds together self + all-children-complete + any-parent-complete; use
-`IsCompletedSelf` if you need only the node's own flag. `CompleteTime` gives the local completion
-timestamp if marked, else `null`.
+`IsMarked` if you need only the node's own raw flag. `MarkedTime` gives the local completion timestamp
+if marked, else `null`.
 
-`sheet.ProgressAllCompleteMarkedDic` (`IReadOnlyDictionary<string, DateTime>`, path → completion time)
-is the current API; `ProgressCompletions`/`ProgressCompletionsLocalDateTime` are `[Obsolete]` aliases
-kept for backward compatibility (formerly `ProgressCompletionDic`, itself renamed to
-`ProgressAllCompleteMarkedDic`).
+`sheet.AllMarkedProgressDic` (`IReadOnlyDictionary<string, DateTime>`, path → mark time) is the current
+API; `ProgressCompletions`/`ProgressCompletionsLocalDateTime` are `[Obsolete]` aliases kept for backward
+compatibility (this property has been renamed twice: `ProgressCompletionDic` →
+`ProgressAllCompleteMarkedDic` → `AllMarkedProgressDic`).
 
-**`ProgressAllCompleteMarkedDic.ContainsKey(path)` ≠ `node.IsCompleted`** — they answer different
-questions:
-- `ProgressAllCompleteMarkedDic.ContainsKey(path)` (same check as `node.IsCompletedSelf`) is the raw
+**`node.IsMarked` ≠ `node.IsCompleted`** — they answer different questions, and the SDK now gives you a
+direct way to check either without touching the raw dictionary yourself:
+- `node.IsMarked` (or `sheet.IsProgressNodeMarked(node)` / `sheet.IsProgressMarked(path)`) is the raw
   backend "有沒有被標記完成" flag for exactly that path — it ignores parent/child relationships
-  entirely.
-- `node.IsCompleted` additionally counts as complete if **any child** is marked complete, or if **any
-  ancestor** is marked complete — so a parent node can read as complete even though its own path was
-  never directly marked, purely because a child underneath it was.
+  entirely. `AllMarkedProgressDic.ContainsKey(path)` is the same check with no `ProgressNode` required.
+- `node.IsCompleted` (or `sheet.IsProgressNodeCompleted(node)` / `sheet.IsProgressCompleted(path)`)
+  additionally counts as complete if **any child** is marked, or if **any ancestor** is marked — so a
+  parent node can read as complete even though its own path was never directly marked, purely because a
+  child underneath it was.
 
-If you need "was this exact node explicitly marked" (e.g. deciding whether to fire `SetComplete` again,
-or to show a per-step checkmark that shouldn't light up just because a sibling/child finished), check
-the dictionary or `IsCompletedSelf`. If you need "should this be visually/logically treated as done given
-the whole tree" (e.g. gating whether the player can move on), use `IsCompleted`.
+Use `IsMarked`/`IsProgressMarked` when you need "was this exact node explicitly marked" (e.g. deciding
+whether to fire `SetMark` again, or a per-step checkmark that shouldn't light up just because a
+sibling/child finished). Use `IsCompleted`/`IsProgressCompleted` when you need "should this be
+visually/logically treated as done given the whole tree" (e.g. gating whether the player can move on).
+`sheet.IsProgress*(path)` internally calls `FindProgressNodeByPath` for you, so prefer them over the
+`node.Is*` members when you only have the path string on hand.
 
 ## Pages / rows / columns (1-indexed rows!)
 

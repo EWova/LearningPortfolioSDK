@@ -806,7 +806,7 @@ namespace EWova.LearningPortfolio
 
                 process.Status = FetchProjectSheetStatus.InternalHandleSheet;
                 #region 3. 初始化路徑節點節點的標記與取消標記方法
-                RESULT.SetCompleteIncludeNonNode = new NetServiceRequest<string>
+                RESULT.SetProgressMark = new NetServiceRequest<string>
                 (
                     handler: RESULT.NetServiceHandler,
                     func: (path, ct) => m_apiClient.SetCompleteProgressAsync
@@ -818,11 +818,11 @@ namespace EWova.LearningPortfolio
                     onRespond: async (path, ct) =>
                     {
                         RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
-                        Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressAllCompleteMarkedDic;
+                        Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.AllMarkedProgressDic;
                         obj.TryAdd(path, DateTime.Now);
                     }
                 );
-                RESULT.SetUnmarkIncludeNonNode = new NetServiceRequest<string>
+                RESULT.SetProgressUnmark = new NetServiceRequest<string>
                 (
                     handler: RESULT.NetServiceHandler,
                     func: (path, ct) => m_apiClient.SetUnmarkProgressAsync
@@ -834,7 +834,7 @@ namespace EWova.LearningPortfolio
                     onRespond: async (path, ct) =>
                     {
                         RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
-                        Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressAllCompleteMarkedDic;
+                        Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.AllMarkedProgressDic;
                         obj.Remove(path);
                     }
                 );
@@ -869,7 +869,7 @@ namespace EWova.LearningPortfolio
 
                     pNode.Path = parent == null ? pNode.Id : $"{parent.Path}/{pNode.Id}";
                     string path = pNode.Path;
-                    pNode.SetComplete = new NetServiceVoid
+                    pNode.SetMark = new NetServiceVoid
                     (
                         handler: RESULT.NetServiceHandler,
                         func: (ct) => m_apiClient.SetCompleteProgressAsync
@@ -881,7 +881,7 @@ namespace EWova.LearningPortfolio
                         onRespond: async (ct) =>
                         {
                             RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
-                            Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressAllCompleteMarkedDic;
+                            Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.AllMarkedProgressDic;
                             obj.TryAdd(path, DateTime.Now);
                         }
                     );
@@ -897,7 +897,7 @@ namespace EWova.LearningPortfolio
                         onRespond: async (ct) =>
                         {
                             RESULT.CompletionProgress = await m_apiClient.GetProgressCompletionAsync(RESULT.SheetId, ct);
-                            Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.ProgressAllCompleteMarkedDic;
+                            Dictionary<string, DateTime> obj = (Dictionary<string, DateTime>)RESULT.AllMarkedProgressDic;
                             obj.Remove(path);
                         }
                     );
@@ -939,7 +939,7 @@ namespace EWova.LearningPortfolio
                         items.Add(item.Path, item.DateTime.ToLocalTime());
                     }
 
-                    RESULT.ProgressAllCompleteMarkedDic = items;
+                    RESULT.AllMarkedProgressDic = items;
                 }
                 #endregion
 
@@ -1374,7 +1374,7 @@ namespace EWova.LearningPortfolio
                         DescriptionText = $"{pn.Description}",
                         IsCompleteSelf = pn.IsCompletedSelf,
                         IsComplete = pn.IsCompleted,
-                        CheckDateTimeText = pn.CompleteTime.HasValue ? pn.CompleteTime.Value.ToString("yyyy-MM-dd HH:mm:ss") : "",
+                        CheckDateTimeText = pn.MarkedTime.HasValue ? pn.MarkedTime.Value.ToString("yyyy-MM-dd HH:mm:ss") : "",
                         Icon = GetSprite(pn.IconTex),
                         Children = children
                     };

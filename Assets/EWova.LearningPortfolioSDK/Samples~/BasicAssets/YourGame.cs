@@ -84,7 +84,7 @@ namespace EWova.LearningPortfolio.BasicAssets
             }
 
             // [讀] 已完成的進度路徑與完成時間
-            foreach (var kvp in Sheet.ProgressAllCompleteMarkedDic)
+            foreach (var kvp in Sheet.AllMarkedProgressDic)
             {
                 string completionPath = kvp.Key;
                 DateTime completionLocalDateTime = kvp.Value;
@@ -94,7 +94,7 @@ namespace EWova.LearningPortfolio.BasicAssets
             // [寫] 標記已知進度路徑為完成 這會使對應的進度節點更新 (如果節點存在的話)
             if (Sheet.FindProgressNodeByPath("單元1/關卡1", out LearningPortfolio.ProgressNode node1))
             {
-                node1.SetComplete.Request
+                node1.SetMark.Request
                 (
                     onSuccess: () => { Debug.Log("'單元1/關卡1' 成功標記進度完成"); },
                     onFailure: (msg) => { Debug.LogError("標記進度完成失敗 因為:" + msg); },
@@ -112,13 +112,13 @@ namespace EWova.LearningPortfolio.BasicAssets
                 );
             }
             // [寫] 標記某個進度路徑為完成 (如果節點不存在則不會更新節點資訊)
-            Sheet.SetCompleteIncludeNonNode.Request("Extra/額外關卡",
+            Sheet.SetProgressMark.Request("Extra/額外關卡",
                 onSuccess: () => { Debug.Log("'Extra/額外關卡' 成功標記進度完成"); },
                 onFailure: (msg) => { Debug.LogError("標記進度完成失敗 因為:" + msg); },
                 onException: (ex) => { Debug.LogException(ex); }
             );
             // [寫] 取消某個進度路徑完成標記 (如果節點不存在則不會更新節點資訊)
-            Sheet.SetUnmarkIncludeNonNode.Request("Extra/額外關卡",
+            Sheet.SetProgressUnmark.Request("Extra/額外關卡",
                 onSuccess: () => { Debug.Log("'Extra/額外關卡' 成功取消完成標記"); },
                 onFailure: (msg) => { Debug.LogError("取消完成標記進度失敗 因為:" + msg); },
                 onException: (ex) => { Debug.LogException(ex); }
@@ -131,7 +131,7 @@ namespace EWova.LearningPortfolio.BasicAssets
                 {
                     try
                     {
-                        NetServiceAsyncRespond result = await node3.SetComplete.RequestAsync();
+                        NetServiceAsyncRespond result = await node3.SetMark.RequestAsync();
                         if (result.IsSuccess)
                             Debug.Log("'單元1/關卡1' 成功標記進度完成");
                         else if (result.IsFailed)

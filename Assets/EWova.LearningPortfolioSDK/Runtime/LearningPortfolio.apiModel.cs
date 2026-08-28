@@ -171,6 +171,24 @@ namespace EWova.LearningPortfolio
                 progressNode = AllProgressNodesPathMap[path];
                 return true;
             }
+            /// <summary>
+            /// 判斷進度節點是否已完成 (含父子關係)
+            /// </summary>
+            public bool IsProgressNodeCompleted(ProgressNode progressNode)
+            {
+                if (progressNode == null)
+                    return false;
+                return progressNode.IsCompleted;
+            }
+            /// <summary>
+            /// 判斷進度節點是否已被完成標記 (不含父子關係)
+            /// </summary>
+            public bool IsProgressNodeMarked(ProgressNode progressNode)
+            {
+                if (progressNode == null)
+                    return false;
+                return progressNode.IsMarked;
+            }
 
             /// <summary>
             /// 已完成的進度節點路徑清單，格式為「根節點/子節點1/子節點2/...」。
@@ -204,16 +222,36 @@ namespace EWova.LearningPortfolio
             /// <value>
             /// Key 為已完成節點的路徑；Value 為該路徑的完成時間。
             /// </value>
-            public IReadOnlyDictionary<string, DateTime> ProgressAllCompleteMarkedDic { get; internal set; }
+            public IReadOnlyDictionary<string, DateTime> AllMarkedProgressDic { get; internal set; }
                 = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
             /// <summary>
             /// [網路服務請求] 標記某路徑為已完成 (節點可能不存在，但允許標記完成。可能用於隱藏進度紀錄)
             /// </summary>
-            public NetServiceRequest<string> SetCompleteIncludeNonNode { get; internal set; }
+            public NetServiceRequest<string> SetProgressMark { get; internal set; }
             /// <summary>
             /// [網路服務請求] 取消某路徑已完成標記 (節點可能不存在，但允許標記完成。可能用於隱藏進度紀錄)
             /// </summary>
-            public NetServiceRequest<string> SetUnmarkIncludeNonNode { get; internal set; }
+            public NetServiceRequest<string> SetProgressUnmark { get; internal set; }
+            /// <summary>
+            /// 判斷進度是否已完成 (含父子關係)
+            /// </summary>
+            public bool IsProgressCompleted(string path)
+            {
+                if (string.IsNullOrEmpty(path))
+                    return false;
+                if (!FindProgressNodeByPath(path, out var progressNode))
+                    return false;
+                return progressNode.IsCompleted;
+            }
+            /// <summary>
+            /// 判斷進度是否已被完成標記 (不含父子關係)
+            /// </summary>
+            public bool IsProgressMarked(string path)
+            {
+                if (string.IsNullOrEmpty(path))
+                    return false;
+                return AllMarkedProgressDic.ContainsKey(path);
+            }
 
             protected virtual void Dispose(bool disposing)
             {
@@ -238,7 +276,7 @@ namespace EWova.LearningPortfolio
                 GC.SuppressFinalize(this);
             }
         }
-        public class ProgressNode
+        public partial class ProgressNode
         {
             /// <summary>
             /// 所屬的使用者專案記錄表單
@@ -291,37 +329,36 @@ namespace EWova.LearningPortfolio
             /// </summary>
             public bool IsHidden { get; internal set; }
 
-
             /// <summary>
             /// 節點路徑 (用於標記完成度，格式為 "根節點/子節點1/子節點2/..." )
             /// </summary>
             public string Path { get; internal set; }
             /// <summary>
-            /// [網路服務請求] 標記該節點為已完成
+            /// [網路服務請求] 設定該節點完成標記
             /// </summary>
-            public NetServiceVoid SetComplete { get; internal set; }
+            public NetServiceVoid SetMark { get; internal set; }
             /// <summary>
-            /// [網路服務請求] 取消標記該節點已完成
+            /// [網路服務請求] 取消設定該節點完成標記
             /// </summary>
             public NetServiceVoid SetUnmark { get; internal set; }
             /// <summary>
-            /// 是否已完成 (自己、子節點或父節點其中之一已完成即為完成)
+            /// 是否已完成 (含父子關係)
             /// </summary>
-            public bool IsCompleted => IsCompletedSelf || IsCompletedChildren() || IsCompletedParent();
+            public bool IsCompleted => IsMarked || IsCompletedChildren() || IsCompletedParent();
             /// <summary>
-            /// 是否自己被標記為已完成
+            /// 是否已被完成標記 (不含父子關係)
             /// </summary>
-            public bool IsCompletedSelf => RootSheet.ProgressAllCompleteMarkedDic.ContainsKey(Path);
+            public bool IsMarked => RootSheet.AllMarkedProgressDic.ContainsKey(Path);
             /// <summary>
             /// 自己被標記為已完成的時間 (本地時間)
             /// </summary>
-            public DateTime? CompleteTime => RootSheet.ProgressAllCompleteMarkedDic.TryGetValue(Path, out var result) ? result : (DateTime?)null;
+            public DateTime? MarkedTime => RootSheet.AllMarkedProgressDic.TryGetValue(Path, out var result) ? result : (DateTime?)null;
             /// <summary>
             /// 是否子節點被標記為已完成 (自己未完成且子節點有一個以上被標記為已完成即為完成)
             /// </summary>
             public bool IsCompletedChildren()
             {
-                if (IsCompletedSelf)
+                if (IsMarked)
                     return true;
 
                 if (Children.Length > 0 && Children.All(c => c.IsCompletedChildren()))
@@ -334,7 +371,7 @@ namespace EWova.LearningPortfolio
             /// </summary>
             public bool IsCompletedParent()
             {
-                if (IsCompletedSelf)
+                if (IsMarked)
                     return true;
 
                 if (Parent != null && Parent.IsCompletedParent())

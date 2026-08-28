@@ -51,7 +51,7 @@ contains a fully worked reference project (`Template.cs`, `YourGame.cs`, `Player
 | `EWovaLoginPlane` (+ `EWovaLoginPlaneUI`) | Drop-in login UI prefab that drives `LearningPortfolio.CheckAvailability`/`Connect`/`Disconnect` for you and fires `OnGameStart(bool)`. |
 | `LearningPortfolioProfile` | ScriptableObject holding the project's `ProjectSettings.APIKey`. Must sit under a `Resources/EWova/` folder. |
 | `LearningPortfolio.UserProjectRecordSheet` | The logged-in user's whole record: `ProgressNode` tree + `Page[]`. Obtained via `LearningPortfolio.LoggedUserProjectRecordSheet` or the `FetchUserProjectSheet`/`OnUserProjectRecordUpdated` callback. |
-| `LearningPortfolio.ProgressNode` | One node in a completion tree (e.g. `"單元1/關卡1"`). Has `SetComplete`/`SetUnmark` write handles. |
+| `LearningPortfolio.ProgressNode` | One node in a completion tree (e.g. `"單元1/關卡1"`). Has `SetMark`/`SetUnmark` write handles. |
 | `LearningPortfolio.Page` / `Column` / `Row` / `Cell` | Spreadsheet-like data per page: fixed `Column`s, 1-indexed `Row`s, each `Row` has `SetCells`; `Page` has `AddRow`/`AddRowAndSetCells`/`ClearReadableData`. |
 | `NetServiceVoid` / `NetServiceRequest<T>` / `NetServiceRespond<T>` / `NetService<TRequest,TRespond>` | The write-handle types exposed as properties on the model above (`.Request(...)` callback style or `.RequestAsync(...)` awaitable style). All network writes for one sheet are serialized through one internal queue — you never race two writes on the same user. |
 | `ProjectRecordShower` | Read-only viewer UI (progress graph + spreadsheet) for the current user's record. Created via `LearningPortfolio.CreateUserProjectRecordShower(rectTransform)`, not instantiated directly. |
