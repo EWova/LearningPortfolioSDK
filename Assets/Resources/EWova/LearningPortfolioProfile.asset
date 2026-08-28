@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2d5e7595b7e677742b2da7d6ea020408, type: 3}
   m_Name: LearningPortfolioProfile
   m_EditorClassIdentifier: 
-  APISettings:
+  ProjectSettings:
     APIKey: 
