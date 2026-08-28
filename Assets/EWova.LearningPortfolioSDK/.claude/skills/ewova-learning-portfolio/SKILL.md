@@ -161,7 +161,7 @@ shower.Close();
 - **Writes are per-sheet serialized**, not per-call: rapid-fire `.Request(...)` calls on the same sheet
   queue up rather than race, but a write to sheet A and a write to sheet B (different users) are
   independent queues.
-- Use `LearningPortfolio.ConnectBlocker` (a `List<Func<(bool isBlocked, string msg)>>`) to prevent
+- Use `LearningPortfolio.ConnectBlocker` (a `List<Func<(bool isBlocked, string blockedMsg)>>`) to prevent
   reconnect while some other state (e.g. a learning session already in progress) makes it unsafe — see
   the `ConnectBlocker.cs` sample for the idiomatic self-registering pattern.
 - The login prefab has an editor-only "Disable Force Login" convenience toggle

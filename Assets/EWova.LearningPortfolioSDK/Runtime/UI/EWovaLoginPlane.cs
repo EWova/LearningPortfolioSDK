@@ -1,12 +1,8 @@
 ﻿using UnityEngine;
 using UnityEngine.Events;
 
-using Cysharp.Threading.Tasks;
 using System.Threading;
 using System;
-using EWova.Auth;
-using UnityEngine.XR;
-using System.Collections.Generic;
 
 namespace EWova.LearningPortfolio
 {
@@ -42,6 +38,10 @@ namespace EWova.LearningPortfolio
 
         [Tooltip("遊戲開始 True=有使用使用者 False=無使用使用者")]
         public UnityEvent<bool> OnGameStart;
+        /// <summary>
+        /// 遊戲開始，並且 callback 使用者資料
+        /// </summary>
+        public event Action<LearningPortfolio.UserData> OnGameStartWithUserData;
 
         [Header("ReadOnly")]
         public string ReadonlySheetGuid;
@@ -96,11 +96,13 @@ namespace EWova.LearningPortfolio
             UI.CheckAccountStartButton.onClick.AddListener(() =>
             {
                 OnGameStart?.Invoke(true);
+                OnGameStartWithUserData?.Invoke(LearningPortfolio.LoginUserData);
             });
             //按下跳過登入按鈕
             UI.LoginSkipButton.onClick.AddListener(() =>
             {
                 OnGameStart?.Invoke(false);
+                OnGameStartWithUserData?.Invoke(null);
             });
         }
 

@@ -20,7 +20,7 @@ namespace EWova.LearningPortfolio
                 public string LabelText;
                 public string DescriptionText;
                 public string CheckDateTimeText;
-                public bool IsCompleteSelf;
+                public bool IsMarked;
                 public bool IsComplete;
                 public IReadOnlyList<Node> Children;
             }
@@ -30,7 +30,7 @@ namespace EWova.LearningPortfolio
             public struct Cell
             {
                 public static implicit operator string(Cell c) => c.LabelText;
-                public static implicit operator Cell(string labelText) => new Cell { IsReadOnly = false, LabelText = labelText };
+                public static implicit operator Cell(string labelText) => new() { IsReadOnly = false, LabelText = labelText };
                 public static Cell ReadOnly(string labelText)
                 {
                     return new Cell { IsReadOnly = true, LabelText = labelText };
@@ -70,7 +70,7 @@ namespace EWova.LearningPortfolio
         public BinderButton CloseButton;
         public Image BackButtonImage;
         public TextMeshProUGUI BackButtonText;
-        public bool DisableOriginCloseButtonBehaviour;
+        public bool DisableOriginCloseButtonBehavior;
         [Space]
         public BinderButton SwitchChartBTN;
         public TextMeshProUGUI SwitchChartText;
@@ -389,7 +389,7 @@ namespace EWova.LearningPortfolio
 
             CloseButton.onClick.AddListener(() =>
             {
-                if (DisableOriginCloseButtonBehaviour)
+                if (DisableOriginCloseButtonBehavior)
                     return;
 
                 Close();
@@ -430,7 +430,7 @@ namespace EWova.LearningPortfolio
             IsViewingGraphProgress = true;
         }
         private float t_blackValue = 0.00f;
-        private HashSet<GraphNodeInstance> t_notBlackNode = new();
+        private readonly HashSet<GraphNodeInstance> t_notBlackNode = new();
         private void Update()
         {
             if (t_nextFrameUpdate)
@@ -448,7 +448,7 @@ namespace EWova.LearningPortfolio
                 t_blackValue += (m_graphBlackBG ? Time.deltaTime : -Time.deltaTime) / m_blackTime;
                 t_blackValue = Mathf.Clamp(t_blackValue, 0.0f, 1.2f);
 
-                Color applyValue = new Color(0, 0, 0, Mathf.Clamp01(Mathf.Pow(t_blackValue, m_blackPower)) * m_blackValueMax);
+                Color applyValue = new(0, 0, 0, Mathf.Clamp01(Mathf.Pow(t_blackValue, m_blackPower)) * m_blackValueMax);
 
                 GraphBGMask.color = applyValue;
                 foreach (var node in m_nodeMapping.Values)
@@ -461,20 +461,20 @@ namespace EWova.LearningPortfolio
                     node.Object.Mask.color = applyValue;
                 }
 
-                if (m_hovingGraphNode != null)
+                if (m_hoveringGraphNode != null)
                 {
-                    if (t_hovingGraphNode != m_hovingGraphNode)
+                    if (t_hoveringGraphNode != m_hoveringGraphNode)
                     {
                         t_notBlackNode.Clear();
 
-                        t_hovingGraphNode = m_hovingGraphNode;
+                        t_hoveringGraphNode = m_hoveringGraphNode;
 
 #if UNITY_6000_0_OR_NEWER
                         GraphNodeDesText.textWrappingMode = TextWrappingModes.Normal;
 #else
                         GraphNodeDesText.enableWordWrapping = true;
 #endif
-                        GraphNodeDesText.text = t_hovingGraphNode.DescriptionText;
+                        GraphNodeDesText.text = t_hoveringGraphNode.DescriptionText;
                         GraphNodeDes.sizeDelta = GraphNodeDesText.GetPreferredValues(GraphNodeDesText.text, m_graphNodeDesSizeDeltaX, 0);
 #if !UNITY_6000_0_OR_NEWER
                         if (GraphNodeDes.sizeDelta.y > m_graphNodeDesSizeDeltaY)
@@ -483,21 +483,21 @@ namespace EWova.LearningPortfolio
                         GraphNodeDes.gameObject.SetActive(true);
                         m_graphBlackBG = true;
 
-                        t_notBlackNode.Add(m_nodeMapping[t_hovingGraphNode]);
+                        t_notBlackNode.Add(m_nodeMapping[t_hoveringGraphNode]);
 
-                        foreach (var item in m_nodeMapping[t_hovingGraphNode].AllParents)
+                        foreach (var item in m_nodeMapping[t_hoveringGraphNode].AllParents)
                             t_notBlackNode.Add(item);
                     }
-                    GraphNodeDes.anchoredPosition = t_hovingGraphNode.RightPivot + new Vector2(-16, -8);
+                    GraphNodeDes.anchoredPosition = t_hoveringGraphNode.RightPivot + new Vector2(-16, -8);
                 }
                 else
                 {
-                    if (t_hovingGraphNode != null)
+                    if (t_hoveringGraphNode != null)
                     {
                         GraphNodeDes.gameObject.SetActive(false);
                         m_graphBlackBG = false;
                     }
-                    t_hovingGraphNode = null;
+                    t_hoveringGraphNode = null;
                 }
 
                 if (IsGraphDirty)
@@ -632,8 +632,8 @@ namespace EWova.LearningPortfolio
                 m_nodeMapping.Clear();
                 t_notBlackNode.Clear();
                 m_resultGraph = null;
-                m_hovingGraphNode = null;
-                t_hovingGraphNode = null;
+                m_hoveringGraphNode = null;
+                t_hoveringGraphNode = null;
                 GraphNodeDes.gameObject.SetActive(false);
             }
         }
@@ -668,10 +668,10 @@ namespace EWova.LearningPortfolio
             }
             public List<GraphNodeInstance> Children = new();
         }
-        private Dictionary<ProjectRecordShowerGraphNode, GraphNodeInstance> m_nodeMapping = new();
+        private readonly Dictionary<ProjectRecordShowerGraphNode, GraphNodeInstance> m_nodeMapping = new();
         private GraphNodeInstance m_resultGraph;
-        private ProjectRecordShowerGraphNode m_hovingGraphNode;
-        private ProjectRecordShowerGraphNode t_hovingGraphNode;
+        private ProjectRecordShowerGraphNode m_hoveringGraphNode;
+        private ProjectRecordShowerGraphNode t_hoveringGraphNode;
 
         public void SetGraph(GraphContent graphContent)
         {
@@ -690,15 +690,15 @@ namespace EWova.LearningPortfolio
                 m_nodeMapping.Add(newNode, nodeStruct);
                 nodeStruct.Object.Hover += (node) =>
                 {
-                    m_hovingGraphNode = node;
+                    m_hoveringGraphNode = node;
                 };
                 nodeStruct.Object.Click += (node) =>
                 {
-                    //m_hovingGraphNode = node;
+                    //m_hoveringGraphNode = node;
                 };
 
                 newNode.Icon = dataNode.Icon;
-                newNode.IsCompleteSelf = dataNode.IsCompleteSelf;
+                newNode.IsMarked = dataNode.IsMarked;
                 newNode.IsComplete = dataNode.IsComplete;
                 newNode.LabelText = dataNode.LabelText;
                 newNode.DescriptionText = dataNode.DescriptionText;
@@ -732,7 +732,7 @@ namespace EWova.LearningPortfolio
             if (m_resultGraph == null)
                 return;
 
-            Rect frameRect = new Rect(0, 0, 0, 0);
+            Rect frameRect = new(0, 0, 0, 0);
 
             int Place(GraphNodeInstance node, int depth, int row)
             {
@@ -818,10 +818,6 @@ namespace EWova.LearningPortfolio
                     continue;
                 if (node.Root == null) // IsTopRoot
                     continue;
-
-                var rootFirstChild = node.Root.Children[0];
-                bool isFirstChildSelf = rootFirstChild == node;
-
 
                 node.Object.LeftLine.gameObject.SetActive(true);
                 node.Object.UpLine.gameObject.SetActive(true);

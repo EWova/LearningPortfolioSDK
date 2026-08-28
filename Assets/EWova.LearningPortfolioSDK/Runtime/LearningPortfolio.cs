@@ -69,11 +69,8 @@ namespace EWova.LearningPortfolio
                     DestroyImmediate(s_instance);
                     s_instance = null;
                 }
-                if (EWovaAuth != null)
-                {
-                    EWovaAuth.Dispose();
-                    EWovaAuth = null;
-                }
+                EWovaAuth?.Dispose();
+                EWovaAuth = null;
             };
 #endif
         }
@@ -160,8 +157,8 @@ namespace EWova.LearningPortfolio
         /// <remarks>
         /// 預設不會阻擋連線，但開發者有需求可以在此加入自訂的檢查邏輯，如：遊戲進行中，不允許後續連線到學習歷程服務等需求
         /// </remarks>
-        public static readonly List<Func<(bool isBlocked, string bloackedMsg)>> ConnectBlocker = new();
-        public static (bool isBlocked, string bloackedMsg) IsConnectBlockedByCustomLogic
+        public static readonly List<Func<(bool isBlocked, string blockedMsg)>> ConnectBlocker = new();
+        public static (bool isBlocked, string blockedMsg) IsConnectBlockedByCustomLogic
         {
             get
             {
@@ -170,9 +167,9 @@ namespace EWova.LearningPortfolio
 
                 foreach (var require in ConnectBlocker)
                 {
-                    (bool isBlocked, string bloackedMsg) = require.Invoke();
+                    (bool isBlocked, string blockedMsg) = require.Invoke();
                     if (isBlocked)
-                        return (true, bloackedMsg);
+                        return (true, blockedMsg);
                 }
                 return (false, null);
             }
@@ -628,7 +625,7 @@ namespace EWova.LearningPortfolio
             try
             {
                 process.Progress = 0.05f;
-                CheckAvailabilityProcess checkProAvaProcess = new CheckAvailabilityProcess();
+                CheckAvailabilityProcess checkProAvaProcess = new();
                 checkProAvaProcess.OnProgressChanged += p => process.Progress = 0.05f + (p * 0.35f);
                 checkProAvaProcess.OnStatusChanged += s =>
                 {
@@ -1359,7 +1356,7 @@ namespace EWova.LearningPortfolio
 
             // Progress Graph
             {
-                ProjectRecordShower.GraphContent.Node Convert(ProgressNode pn)
+                static ProjectRecordShower.GraphContent.Node Convert(ProgressNode pn)
                 {
                     var children = new List<ProjectRecordShower.GraphContent.Node>();
                     foreach (var child in pn.Children)
@@ -1372,7 +1369,7 @@ namespace EWova.LearningPortfolio
                     {
                         LabelText = $"{pn.Label}",
                         DescriptionText = $"{pn.Description}",
-                        IsCompleteSelf = pn.IsCompletedSelf,
+                        IsMarked = pn.IsMarked,
                         IsComplete = pn.IsCompleted,
                         CheckDateTimeText = pn.MarkedTime.HasValue ? pn.MarkedTime.Value.ToString("yyyy-MM-dd HH:mm:ss") : "",
                         Icon = GetSprite(pn.IconTex),
@@ -1397,7 +1394,7 @@ namespace EWova.LearningPortfolio
                 Page page = userProjectRecord.Pages[i];
                 ProjectRecordShower.ChartContent content = new()
                 {
-                    Columns = page.Columns.Select((Column _column) => new ProjectRecordShower.ChartContent.Column()
+                    Columns = page.Columns.Select(_column => new ProjectRecordShower.ChartContent.Column()
                     {
                         Label = _column.Label,
                         Cells = _column.Cells.Select(cell => new ProjectRecordShower.ChartContent.Cell()
