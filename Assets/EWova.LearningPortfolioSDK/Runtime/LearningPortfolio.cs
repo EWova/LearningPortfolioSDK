@@ -174,46 +174,72 @@ namespace EWova.LearningPortfolio
         }
 
         /// <summary>
-        /// 自訂 <see cref="ProjectRecordShower"/> 圖表中，每個儲存格如何轉換為顯示用的 LabelText / 對齊方式。
+        /// <see cref="ChartCellViewProvider"/> 的回傳結果：圖表儲存格要顯示的文字，以及（可選的）文字對齊方式覆寫。
+        /// </summary>
+        public readonly struct ChartCellDisplay
+        {
+            public readonly string LabelText;
+            public readonly TMPro.TextAlignmentOptions? OverrideAlignment;
+
+            public ChartCellDisplay(string labelText, TMPro.TextAlignmentOptions? overrideAlignment = null)
+            {
+                LabelText = labelText;
+                OverrideAlignment = overrideAlignment;
+            }
+        }
+
+        /// <summary>
+        /// 自訂 <see cref="ProjectRecordShower"/> 圖表中，每個儲存格的原始文字 (<paramref name="text"/>) 依欄位型別
+        /// (<paramref name="fieldType"/>) 轉換為顯示用的 <see cref="ChartCellDisplay"/>（LabelText / 對齊方式）。
         /// </summary>
         /// <remarks>
-        /// 預設值為 <see cref="DefaultChartCellViewProvider"/>，依 <see cref="FieldType"/> 提供基本的格式化與對齊；
-        /// 第三方可以直接改指派這個委派，換成自己的顯示邏輯（例如自訂日期格式、加上單位、改變對齊方式等），
-        /// 或是在自訂邏輯內先呼叫 <see cref="DefaultChartCellViewProvider"/> 再微調回傳結果。
+        /// 預設值為 <see cref="DefaultChartCellViewProvider"/>；第三方可以直接改指派這個委派，換成自己的顯示邏輯
+        /// （例如自訂日期格式、加上單位、改變對齊方式等），或是在自訂邏輯內先呼叫
+        /// <see cref="DefaultChartCellViewProvider"/> 再微調回傳結果。刻意只開放 <see cref="FieldType"/> 與原始文字
+        /// 兩個輸入，不直接暴露 <see cref="Column"/>/<see cref="Cell"/>。
         /// </remarks>
-        public static Func<Column, Cell, ProjectRecordShower.ChartContent.Cell> ChartCellViewProvider = DefaultChartCellViewProvider;
+        public static Func<FieldType, string, ChartCellDisplay> ChartCellViewProvider = DefaultChartCellViewProvider;
 
         /// <summary>
         /// <see cref="ChartCellViewProvider"/> 的預設實作。
         /// </summary>
-        public static ProjectRecordShower.ChartContent.Cell DefaultChartCellViewProvider(Column column, Cell cell)
+        public static ChartCellDisplay DefaultChartCellViewProvider(FieldType fieldType, string text)
         {
-            return new ProjectRecordShower.ChartContent.Cell
+            const string TEXT = "#374151";
+            const string SECONDARY = "#6B7280";
+            const string UNIT = "#6B7280";
+            const string NUMBER = "#2563EB";
+
+            string labelText = fieldType switch
             {
-                IsReadOnly = column.IsReadOnly,
-                LabelText = column.FieldType switch
-                {
-                    FieldType.DateTimeOffset => SheetHelper.TryParseAny<DateTimeOffset>(cell.Text, out var dto) ? dto.ToString("yyyy-MM-dd HH:mm:ss") : cell.Text,
-                    FieldType.Boolean => SheetHelper.TryParseAny<bool>(cell.Text, out var b) ? (b ? "✓" : "✗") : cell.Text,
-                    _
-                        => cell.Text
-                },
-                OverrideAlignment = column.FieldType switch
-                {
-                    FieldType.Number or
-                    FieldType.Percentage or
-                    FieldType.DurationSeconds or
-                    FieldType.DurationMinutes or
-                    FieldType.DurationMilliseconds
-                        => TMPro.TextAlignmentOptions.Left,
-
-                    FieldType.String or
-                    FieldType.DateTimeOffset
-                        => TMPro.TextAlignmentOptions.Center,
-
-                    _ => null
-                }
+                FieldType.String => $"<color={TEXT}>{text}</color>",
+                FieldType.Number => SheetHelper.TryParseAny<double>(text, out var d) ? $"<color={NUMBER}>{d.ToString("0.##")}</color>" : text,
+                FieldType.Boolean => SheetHelper.TryParseAny<bool>(text, out var b) ? (b ? "✓" : "✗") : text,
+                FieldType.DurationSeconds => SheetHelper.TryParseAny<double>(text, out var dSec) ? $"<color={NUMBER}>{dSec.ToString("0.##")}</color> <color={UNIT}>sec</color>" : text,
+                FieldType.DurationMinutes => SheetHelper.TryParseAny<double>(text, out var dMin) ? $"<color={NUMBER}>{dMin.ToString("0.##")}</color> <color={UNIT}>min</color>" : text,
+                FieldType.DurationMilliseconds => SheetHelper.TryParseAny<double>(text, out var dMs) ? $"<color={NUMBER}>{dMs.ToString("0.##")}</color> <color={UNIT}>ms</color>" : text,
+                FieldType.DateTimeOffset => SheetHelper.TryParseAny<DateTimeOffset>(text, out var dto) ? dto.ToString("yyyy-MM-dd HH:mm:ss") : text,
+                _
+                    => $"<color={SECONDARY}>{text}</color>"
             };
+
+            TMPro.TextAlignmentOptions? overrideAlignment = fieldType switch
+            {
+                FieldType.Number or
+                FieldType.Percentage or
+                FieldType.DurationSeconds or
+                FieldType.DurationMinutes or
+                FieldType.DurationMilliseconds
+                    => TMPro.TextAlignmentOptions.Left,
+
+                FieldType.String or
+                FieldType.DateTimeOffset
+                    => TMPro.TextAlignmentOptions.Center,
+
+                _ => null
+            };
+
+            return new ChartCellDisplay(labelText, overrideAlignment);
         }
 
         public static event Action<UserData> OnUserLogin;
@@ -1450,7 +1476,16 @@ namespace EWova.LearningPortfolio
                     Columns = page.Columns.Select(_column => new ProjectRecordShower.ChartContent.Column()
                     {
                         Label = _column.Label,
-                        Cells = _column.Cells.Select(cell => ChartCellViewProvider(_column, cell)).ToArray(),
+                        Cells = _column.Cells.Select(cell =>
+                        {
+                            ChartCellDisplay display = ChartCellViewProvider(_column.FieldType, cell.Text);
+                            return new ProjectRecordShower.ChartContent.Cell
+                            {
+                                IsReadOnly = _column.IsReadOnly,
+                                LabelText = display.LabelText,
+                                OverrideAlignment = display.OverrideAlignment
+                            };
+                        }).ToArray(),
                         CellsSummaryLabel = _column.Cells.Any() ? _column.CellsSummary : null,
                     }).ToArray()
                 };

@@ -165,9 +165,11 @@ shower.Close();
 - Use `LearningPortfolio.ConnectBlocker` (a `List<Func<(bool isBlocked, string blockedMsg)>>`) to prevent
   reconnect while some other state (e.g. a learning session already in progress) makes it unsafe — see
   the `ConnectBlocker.cs` sample for the idiomatic self-registering pattern.
-- `LearningPortfolio.ChartCellViewProvider` (`Func<Column, Cell, ProjectRecordShower.ChartContent.Cell>`)
-  controls how `ProjectRecordShower`'s built-in chart renders each cell (`LabelText` / `OverrideAlignment`)
-  from a `Page`'s raw `FieldType`. Reassign it to fully replace the view logic, or wrap
+- `LearningPortfolio.ChartCellViewProvider` (`Func<FieldType, string, LearningPortfolio.ChartCellDisplay>`)
+  controls how `ProjectRecordShower`'s built-in chart renders each cell. It only receives the column's
+  `FieldType` and the cell's raw text (not the full `Column`/`Cell` objects), and returns a
+  `ChartCellDisplay { LabelText, OverrideAlignment }` — deliberately narrow so third parties can't reach
+  into internal state. Reassign it to fully replace the view logic, or wrap
   `LearningPortfolio.DefaultChartCellViewProvider` to tweak its output. This is a single overridable
   delegate, not an additive list like `ConnectBlocker` — the last assignment wins.
 - The login prefab has an editor-only "Disable Force Login" convenience toggle

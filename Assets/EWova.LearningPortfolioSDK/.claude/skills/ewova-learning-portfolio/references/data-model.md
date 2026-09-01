@@ -179,9 +179,20 @@ request or change `FieldType`.
 `DurationMilliseconds`/`DateTimeOffset`) is a display hint only — `SheetHelper` doesn't use it, cell
 values are always plain round-trippable strings. `ProjectRecordShower`'s built-in chart turns each cell
 into display text/alignment by calling `LearningPortfolio.ChartCellViewProvider` (a
-`Func<Column, Cell, ProjectRecordShower.ChartContent.Cell>`, default `DefaultChartCellViewProvider`) —
+`Func<FieldType, string, LearningPortfolio.ChartCellDisplay>`, default `DefaultChartCellViewProvider`) —
 reassign it to fully control how the chart renders a cell (a single delegate, last assignment wins, not
-additive like `ConnectBlocker`).
+additive like `ConnectBlocker`). It intentionally only takes the raw `FieldType` + cell text, not the
+`Column`/`Cell` objects, and returns `ChartCellDisplay { LabelText, OverrideAlignment }`:
+
+```csharp
+LearningPortfolio.ChartCellViewProvider = (fieldType, text) =>
+{
+    if (fieldType == LearningPortfolio.FieldType.Boolean)
+        return new LearningPortfolio.ChartCellDisplay(text == "true" ? "是" : "否");
+
+    return LearningPortfolio.DefaultChartCellViewProvider(fieldType, text); // fall back to default for the rest
+};
+```
 
 ## Object ↔ row mapping via `SheetHelper` + `[Column]`
 
