@@ -149,7 +149,7 @@ namespace EWova.LearningPortfolio
             public readonly string LabelText;
             public readonly TMPro.TextAlignmentOptions? OverrideAlignment;
 
-            public ChartCellDisplay(string labelText, TMPro.TextAlignmentOptions? overrideAlignment = null, bool? overrideUseMonoSpace = null)
+            public ChartCellDisplay(string labelText, TMPro.TextAlignmentOptions? overrideAlignment = null)
             {
                 LabelText = labelText;
                 OverrideAlignment = overrideAlignment;
