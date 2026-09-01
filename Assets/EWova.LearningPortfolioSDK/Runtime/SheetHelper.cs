@@ -57,16 +57,16 @@ namespace EWova.LearningPortfolio
                     o => (string)o,
                     s => s
                 ),
-                // 輸出 "s" 格式 ISO 8601: "2025-09-25T14:30:00"
-                [typeof(DateTime)] = (
-                    o => ((DateTime)o).ToString("s", CultureInfo.InvariantCulture),
-                    s => DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt) ? dt : DateTime.MinValue
+                // 輸出 "o" 格式 ISO 8601: "2026-09-01T12:30:45.1234567+08:00"
+                [typeof(DateTimeOffset)] = (
+                    o => ((DateTimeOffset)o).ToString("o", CultureInfo.InvariantCulture),
+                    s => DateTimeOffset.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dto) ? dto : DateTimeOffset.MinValue
                 ),
                 // 四捨五入到秒 輸出 "c" 格式 "1.02:03:04" (1天2小時3分鐘4秒)
                 [typeof(TimeSpan)] = (
                     o => TimeSpan.FromSeconds(Math.Round(((TimeSpan)o).TotalSeconds)).ToString("c", CultureInfo.InvariantCulture),
                     s => TimeSpan.TryParse(s, CultureInfo.InvariantCulture, out var ts) ? ts : TimeSpan.Zero
-                )
+                ),
             };
 
         public static string FormatAny(object obj)
@@ -75,11 +75,23 @@ namespace EWova.LearningPortfolio
                 return string.Empty;
 
             var type = obj.GetType();
+
+            if (type == typeof(DateTime))
+            {
+                throw new NotSupportedException(
+                    "DateTime is not supported because it does not preserve an explicit UTC offset. " +
+                    "Please use DateTimeOffset instead."
+                );
+            }
+
             if (TypeFormatters.TryGetValue(type, out var funcs))
                 return funcs.FormatFunc(obj);
 
             // Enum 沒有登記在 TypeFormatters 中，ToString() 已可輸出可逆格式（名稱），交由 ParseAny 用 Enum.Parse 還原。
-            return obj.ToString();
+            if (type.IsEnum)
+                return obj.ToString();
+
+            throw new NotSupportedException($"Type {type.FullName} is not supported.");
         }
 
         public static object ParseAny(Type type, string str)
@@ -89,6 +101,19 @@ namespace EWova.LearningPortfolio
                 if (type.IsValueType)
                     return Activator.CreateInstance(type);
                 return null;
+            }
+
+            if (type == typeof(DateTime))
+            {
+                UnityEngine.Debug.LogError(
+                    "DateTime is not supported. Please use DateTimeOffset instead, " +
+                    "because DateTime does not reliably preserve UTC/offset information."
+                );
+
+                DateTimeOffset dto = (DateTimeOffset)TypeFormatters[typeof(DateTimeOffset)].ParseFunc(str);
+
+                // 舊版資料相容 統一視為本地時間 這可能會造成 v1.3.0 升級使用者資料錯誤
+                return dto.DateTime;
             }
 
             if (TypeFormatters.TryGetValue(type, out var funcs))
@@ -106,7 +131,7 @@ namespace EWova.LearningPortfolio
                 }
             }
 
-            return Convert.ChangeType(str, type, CultureInfo.InvariantCulture);
+            throw new NotSupportedException($"Type {type.FullName} is not supported.");
         }
 
         /// <summary>

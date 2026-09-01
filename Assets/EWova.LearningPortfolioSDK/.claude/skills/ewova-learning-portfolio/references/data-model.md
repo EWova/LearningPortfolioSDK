@@ -190,9 +190,15 @@ MyRecord readBack = new MyRecord();
 SheetHelper.ReadFromRow(someRow, ref readBack);
 ```
 
-`SheetHelper.TypeFormatters` covers `bool/byte/char/double/int/float/decimal/string/DateTime/TimeSpan`
+`SheetHelper.TypeFormatters` covers `bool/byte/char/double/int/float/decimal/string/DateTimeOffset/TimeSpan`
 with round-trippable formatting. `enum` fields are also round-trippable (formatted via `ToString()`,
-parsed via `Enum.Parse`); other unregistered types fall back to `Convert.ChangeType`.
+parsed via `Enum.Parse`); any other unregistered type throws `NotSupportedException` from both
+`FormatAny` and `ParseAny` — there is no `Convert.ChangeType` fallback.
+
+Use `DateTimeOffset`, not `DateTime`, for date/time `[Column]` fields — `DateTime` throws from
+`FormatAny` (it can't preserve an explicit UTC offset). `ParseAny` still accepts a `DateTime`-typed
+field for reading back pre-existing data (logs an error and treats the stored value as local time), but
+don't rely on this path for new code.
 
 Extension-method style is also available via `SheetHelperExtensions`:
 
