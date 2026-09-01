@@ -210,27 +210,104 @@ namespace EWova.LearningPortfolio
             const string UNIT = "#6B7280";
             const string NUMBER = "#2563EB";
 
-            (string labelText, TMPro.TextAlignmentOptions? overrideAlignment) = fieldType switch
+            string labelText;
+            TMPro.TextAlignmentOptions? overrideAlignment;
+
+            switch (fieldType)
             {
-                FieldType.String
-                    => ($"<color={TEXT}>{text}</color>", TMPro.TextAlignmentOptions.Center),
-                FieldType.Number
-                    => (SheetHelper.TryParseAny<double>(text, out var d) ? $"<color={NUMBER}>{d.ToString("0.##")}</color>" : text, TMPro.TextAlignmentOptions.Left),
-                FieldType.Boolean
-                    => (SheetHelper.TryParseAny<bool>(text, out var b) ? (b ? "✓" : "✗") : text, (TMPro.TextAlignmentOptions?)null),
-                FieldType.Percentage
-                    => ($"<color={SECONDARY}>{text}</color>", TMPro.TextAlignmentOptions.Left),
-                FieldType.DurationSeconds
-                    => (SheetHelper.TryParseAny<double>(text, out var dSec) ? $"<color={NUMBER}>{dSec.ToString("0.##")}</color> <color={UNIT}>sec</color>" : text, TMPro.TextAlignmentOptions.Left),
-                FieldType.DurationMinutes
-                    => (SheetHelper.TryParseAny<double>(text, out var dMin) ? $"<color={NUMBER}>{dMin.ToString("0.##")}</color> <color={UNIT}>min</color>" : text, TMPro.TextAlignmentOptions.Left),
-                FieldType.DurationMilliseconds
-                    => (SheetHelper.TryParseAny<double>(text, out var dMs) ? $"<color={NUMBER}>{dMs.ToString("0.##")}</color> <color={UNIT}>ms</color>" : text, TMPro.TextAlignmentOptions.Left),
-                FieldType.DateTimeOffset
-                    => (SheetHelper.TryParseAny<DateTimeOffset>(text, out var dto) ? dto.ToString("yyyy-MM-dd HH:mm:ss") : text, TMPro.TextAlignmentOptions.Center),
-                _
-                    => ($"<color={SECONDARY}>{text}</color>", (TMPro.TextAlignmentOptions?)null)
-            };
+                case FieldType.String:
+                    labelText = $"<color={TEXT}>{text}</color>";
+                    overrideAlignment = TMPro.TextAlignmentOptions.Center;
+                    break;
+
+                case FieldType.Number:
+                    if (SheetHelper.TryParseAny<double>(text, out var d))
+                    {
+                        labelText = $"<color={NUMBER}>{d.ToString("0.##")}</color>";
+                        overrideAlignment = TMPro.TextAlignmentOptions.Left;
+                    }
+                    else
+                    {
+                        labelText = text;
+                        overrideAlignment = null;
+                    }
+                    break;
+
+                case FieldType.Boolean:
+                    if (SheetHelper.TryParseAny<bool>(text, out var b))
+                    {
+                        labelText = b ? "✓" : "✗";
+                        overrideAlignment = null;
+                    }
+                    else
+                    {
+                        labelText = text;
+                        overrideAlignment = null;
+                    }
+                    break;
+
+                case FieldType.Percentage:
+                    labelText = $"<color={SECONDARY}>{text}</color>";
+                    overrideAlignment = TMPro.TextAlignmentOptions.Left;
+                    break;
+
+                case FieldType.DurationSeconds:
+                    if (SheetHelper.TryParseAny<double>(text, out var dSec))
+                    {
+                        labelText = $"<color={NUMBER}>{dSec.ToString("0.##")}</color> <color={UNIT}>sec</color>";
+                        overrideAlignment = TMPro.TextAlignmentOptions.Left;
+                    }
+                    else
+                    {
+                        labelText = text;
+                        overrideAlignment = null;
+                    }
+                    break;
+
+                case FieldType.DurationMinutes:
+                    if (SheetHelper.TryParseAny<double>(text, out var dMin))
+                    {
+                        labelText = $"<color={NUMBER}>{dMin.ToString("0.##")}</color> <color={UNIT}>min</color>";
+                        overrideAlignment = TMPro.TextAlignmentOptions.Left;
+                    }
+                    else
+                    {
+                        labelText = text;
+                        overrideAlignment = null;
+                    }
+                    break;
+
+                case FieldType.DurationMilliseconds:
+                    if (SheetHelper.TryParseAny<double>(text, out var dMs))
+                    {
+                        labelText = $"<color={NUMBER}>{dMs.ToString("0.##")}</color> <color={UNIT}>ms</color>";
+                        overrideAlignment = TMPro.TextAlignmentOptions.Left;
+                    }
+                    else
+                    {
+                        labelText = text;
+                        overrideAlignment = null;
+                    }
+                    break;
+
+                case FieldType.DateTimeOffset:
+                    if (SheetHelper.TryParseAny<DateTimeOffset>(text, out var dto))
+                    {
+                        labelText = dto.ToString("yyyy-MM-dd HH:mm:ss");
+                        overrideAlignment = TMPro.TextAlignmentOptions.Center;
+                    }
+                    else
+                    {
+                        labelText = text;
+                        overrideAlignment = null;
+                    }
+                    break;
+
+                default:
+                    labelText = $"<color={SECONDARY}>{text}</color>";
+                    overrideAlignment = null;
+                    break;
+            }
 
             return new ChartCellDisplay(labelText, overrideAlignment);
         }
