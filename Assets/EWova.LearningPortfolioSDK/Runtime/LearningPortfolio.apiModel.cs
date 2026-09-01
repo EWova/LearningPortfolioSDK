@@ -454,7 +454,7 @@ namespace EWova.LearningPortfolio
         /// <summary>
         /// 使用者專案記錄表單的欄位資料
         /// </summary>
-        public class Column
+        public partial class Column
         {
             /// <summary>
             /// 欄位索引
@@ -486,10 +486,6 @@ namespace EWova.LearningPortfolio
             /// 取得該欄垂直的所有儲存格文字
             /// </summary>
             public string[] GetCellsText() => Cells.Select(c => c.Text).ToArray();
-            /// <summary>
-            /// [網路服務請求] 修改欄位屬性設定
-            /// </summary>
-            public NetServiceRequest<Api.SetColumnRequest> Edit { get; internal set; }
             /// <summary>
             /// 儲存格彙總資訊
             /// </summary>

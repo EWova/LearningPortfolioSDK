@@ -15,7 +15,7 @@ UserProjectRecordSheet (LearningPortfolio.LoggedUserProjectRecordSheet)
 └─ Pages[] (fixed columns, 1-indexed rows)
     Page
     ├─ Columns[]              // fixed, 0-indexed
-    │   Column.Edit : NetServiceRequest<Api.SetColumnRequest>
+    │   Column.Edit : NetServiceRequest<Api.SetColumnRequest>  // [Obsolete] no-op, see below
     ├─ Rows[1..N]             // 1-indexed!
     │   Row.SetCells : NetServiceRequest<Api.SetRowRequest>
     ├─ AddRow : NetServiceRespond<Api.AddRowResponse>
@@ -170,6 +170,10 @@ string[] allValuesInColumn = targetColumn.GetCellsText();
 `Api.SetRowRequest.Cells` must line up positionally with the page's columns — the backend fails the
 write if a column that has no matching value is expected server-side (see `PlayerDataUploader.cs`'s
 `ExampleUpdatePlayCount` comment: "如果後台沒有這一格欄位會存儲失敗").
+
+`Column.Edit` / `Api.SetColumnRequest` are `[Obsolete]` — column field type is now managed on the
+backend. Calling `.Request(...)`/`.RequestAsync(...)` on `Edit` logs a warning and does not send a
+request or change `FieldType`.
 
 ## Object ↔ row mapping via `SheetHelper` + `[Column]`
 

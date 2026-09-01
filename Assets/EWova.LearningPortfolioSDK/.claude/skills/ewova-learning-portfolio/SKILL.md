@@ -55,7 +55,7 @@ contains a fully worked reference project (`Template.cs`, `YourGame.cs`, `Player
 | `LearningPortfolio.Page` / `Column` / `Row` / `Cell` | Spreadsheet-like data per page: fixed `Column`s, 1-indexed `Row`s, each `Row` has `SetCells`; `Page` has `AddRow`/`AddRowAndSetCells`/`ClearReadableData`. |
 | `NetServiceVoid` / `NetServiceRequest<T>` / `NetServiceRespond<T>` / `NetService<TRequest,TRespond>` | The write-handle types exposed as properties on the model above (`.Request(...)` callback style or `.RequestAsync(...)` awaitable style). All network writes for one sheet are serialized through one internal queue — you never race two writes on the same user. |
 | `ProjectRecordShower` | Read-only viewer UI (progress graph + spreadsheet) for the current user's record. Created via `LearningPortfolio.CreateUserProjectSheetShower(rectTransform)`, not instantiated directly. |
-| `Api.SetRowRequest` / `Api.SetColumnRequest` / `Api.AddRowResponse` | The only `Api.*` (raw backend DTO) types you construct yourself, as payloads to the `NetService*` calls above. Every other `Api.*` type (`Api.Project`, `Api.Sheet`, `Api.ProgressNode`, ...) is an internal wire-format DTO the SDK deserializes into the friendlier types above — don't construct or depend on them, except `Api.Project` which is directly exposed read-only as `LearningPortfolio.ConnectedProject`. |
+| `Api.SetRowRequest` / `Api.AddRowResponse` | The `Api.*` (raw backend DTO) types you construct yourself, as payloads to the `NetService*` calls above. Every other `Api.*` type (`Api.Project`, `Api.Sheet`, `Api.ProgressNode`, ...) is an internal wire-format DTO the SDK deserializes into the friendlier types above — don't construct or depend on them, except `Api.Project` which is directly exposed read-only as `LearningPortfolio.ConnectedProject`. `Api.SetColumnRequest` / `Column.Edit` are `[Obsolete]` — column field type is now backend-managed; `Edit` logs a warning and no-ops instead of sending. |
 | `LearningPortfolioApiException` and subclasses (`ApiSheetException`, `ApiUsageException`, `ApiProjectException`, `ApiLeaderboardException`) | Thrown from awaited `*Async` calls on backend failure; carry `.Action`, `.SourceApiEx`. The `.Request(...)` callback style instead routes failures to `onFailure`/`onException` — it never throws. |
 
 **Not for third-party use** (looks reachable but isn't):
@@ -71,7 +71,7 @@ contains a fully worked reference project (`Template.cs`, `YourGame.cs`, `Player
 - `EWova.LearningPortfolio.PackageInfo` — `internal`, auto-generated version constants.
 - `EWova.VirtualKeyboard.*` — internal implementation detail of the on-screen keyboard inside
   `EWovaLoginPlaneUI`; only relevant if you're rebuilding that prefab's input handling yourself.
-- Bare `Api.*` response DTOs other than `Api.Project`/`Api.SetRowRequest`/`Api.SetColumnRequest`/`Api.AddRowResponse`
+- Bare `Api.*` response DTOs other than `Api.Project`/`Api.SetRowRequest`/`Api.AddRowResponse`
   — marked `[Preserve]` purely so IL2CPP stripping doesn't break JSON deserialization; not meant to be
   constructed by callers.
 

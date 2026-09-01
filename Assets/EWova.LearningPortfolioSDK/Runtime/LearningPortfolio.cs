@@ -1037,23 +1037,17 @@ namespace EWova.LearningPortfolio
                             IsReadOnly = _rawColumn.IsReadOnly,
                             FieldType = TryParseFieldType(_rawColumn.FieldType),
                         };
+#pragma warning disable CS0618 // 類型或成員已經過時
                         column.Edit = new NetServiceRequest<Api.SetColumnRequest>
                         (
                             handler: RESULT.NetServiceHandler,
-                            func: (request, ct) => m_apiClient.SetPageColumnAsync
-                            (
-                                sheetId: RESULT.SheetId,
-                                page: CURRENT_PAGE,
-                                column: CURRENT_COLUMN,
-                                request: request,
-                                ct: ct
-                            ),
-                            onRespond: (newValue, ct) =>
+                            func: (request, ct) =>
                             {
-                                column.FieldType = TryParseFieldType(newValue.FieldType);
+                                Debug.LogWarning("Column.Edit 已棄用，欄位型別已改由後台管理，此呼叫不會實際送出請求。");
                                 return UniTask.CompletedTask;
                             }
                         );
+#pragma warning restore CS0618 // 類型或成員已經過時
                     }
 
                     // 列從1開始查找獲取 0找不到東西

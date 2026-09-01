@@ -287,6 +287,8 @@ namespace EWova.LearningPortfolio
             catch (OperationCanceledException) { throw; }
         }
 
+#pragma warning disable CS0618 // 類型或成員已經過時
+        [Obsolete("已棄用，欄位型別已改由後台管理，不應再呼叫此 API。")]
         public async UniTask SetPageColumnAsync(string sheetId, int page, int column, Api.SetColumnRequest request, CancellationToken ct = default)
         {
             try
@@ -299,6 +301,7 @@ namespace EWova.LearningPortfolio
             }
             catch (OperationCanceledException) { throw; }
         }
+#pragma warning restore CS0618 // 類型或成員已經過時
 
         public async UniTask<List<Api.Row>> GetPageRowsAsync(string sheetId, int page, int start, int count, CancellationToken ct = default)
         {

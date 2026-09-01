@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 using UnityEngine;
+using UnityEngine.Scripting;
 
 using static EWova.LearningPortfolio.LearningPortfolio;
 
@@ -29,6 +30,13 @@ namespace EWova.LearningPortfolio
             [Obsolete("已棄用從 Client 端 Mapping 裝置類型的方式")]
             public int UsingDeviceId;
         }
+
+        [Preserve]
+        [Obsolete("已棄用，Column.Edit 不再實際送出請求，欄位型別已改由後台管理。")]
+        public class SetColumnRequest
+        {
+            public string FieldType;
+        }
     }
     public partial class LearningPortfolio
     {
@@ -53,6 +61,11 @@ namespace EWova.LearningPortfolio
             public bool IsCompletedSelf => RootSheet.AllMarkedProgressDic.ContainsKey(Path);
             [Obsolete("已棄用，請使用 MarkedTime")]
             public DateTime? CompleteTime => RootSheet.AllMarkedProgressDic.TryGetValue(Path, out var result) ? result : (DateTime?)null;
+        }
+        public partial class Column
+        {
+            [Obsolete("已棄用，不再實際送出請求，欄位型別已改由後台管理。")]
+            public NetServiceRequest<Api.SetColumnRequest> Edit { get; internal set; }
         }
     }
 

@@ -99,11 +99,6 @@ namespace EWova.LearningPortfolio
             public float Average;
         }
         [Preserve]
-        public class SetColumnRequest
-        {
-            public string FieldType;
-        }
-        [Preserve]
         public class Row
         {
             public string[] Cells;
