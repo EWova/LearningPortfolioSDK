@@ -81,7 +81,7 @@ public static class ProjectScheme
     {
         public override Level Level => Level.第一關;
         [Column("分數")] public int Score;
-        [Column("遊玩日期")] public DateTime StartPlay;
+        [Column("遊玩日期")] public DateTimeOffset StartPlay;
         [Column("遊玩時長")] public TimeSpan PlayTime;
         [Column("是否完成關卡")] public bool IsCompletePlay;
         [Column("答題成績")] public int TestScore;
@@ -94,7 +94,7 @@ public static class ProjectScheme
     {
         public override Level Level => Level.第二關;
         [Column("分數")] public int Score;
-        [Column("遊玩日期")] public DateTime StartPlay;
+        [Column("遊玩日期")] public DateTimeOffset StartPlay;
         [Column("遊玩時長")] public TimeSpan PlayTime;
         [Column("是否完成關卡")] public bool IsCompletePlay;
         [Column("答題成績")] public int TestScore;
@@ -107,7 +107,7 @@ public static class ProjectScheme
     {
         public override Level Level => Level.特殊測驗;
         [Column("分數")] public int Score;
-        [Column("遊玩日期")] public DateTime StartPlay;
+        [Column("遊玩日期")] public DateTimeOffset StartPlay;
         [Column("遊玩時長")] public TimeSpan PlayTime;
         [Column("是否完成關卡")] public bool IsCompletePlay;
         [Column("答題成績")] public int TestScore;
