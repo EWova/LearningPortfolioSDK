@@ -173,6 +173,49 @@ namespace EWova.LearningPortfolio
             }
         }
 
+        /// <summary>
+        /// 自訂 <see cref="ProjectRecordShower"/> 圖表中，每個儲存格如何轉換為顯示用的 LabelText / 對齊方式。
+        /// </summary>
+        /// <remarks>
+        /// 預設值為 <see cref="DefaultChartCellViewProvider"/>，依 <see cref="FieldType"/> 提供基本的格式化與對齊；
+        /// 第三方可以直接改指派這個委派，換成自己的顯示邏輯（例如自訂日期格式、加上單位、改變對齊方式等），
+        /// 或是在自訂邏輯內先呼叫 <see cref="DefaultChartCellViewProvider"/> 再微調回傳結果。
+        /// </remarks>
+        public static Func<Column, Cell, ProjectRecordShower.ChartContent.Cell> ChartCellViewProvider = DefaultChartCellViewProvider;
+
+        /// <summary>
+        /// <see cref="ChartCellViewProvider"/> 的預設實作。
+        /// </summary>
+        public static ProjectRecordShower.ChartContent.Cell DefaultChartCellViewProvider(Column column, Cell cell)
+        {
+            return new ProjectRecordShower.ChartContent.Cell
+            {
+                IsReadOnly = column.IsReadOnly,
+                LabelText = column.FieldType switch
+                {
+                    FieldType.DateTimeOffset => SheetHelper.TryParseAny<DateTimeOffset>(cell.Text, out var dto) ? dto.ToString("yyyy-MM-dd HH:mm:ss") : cell.Text,
+                    FieldType.Boolean => SheetHelper.TryParseAny<bool>(cell.Text, out var b) ? (b ? "✓" : "✗") : cell.Text,
+                    _
+                        => cell.Text
+                },
+                OverrideAlignment = column.FieldType switch
+                {
+                    FieldType.Number or
+                    FieldType.Percentage or
+                    FieldType.DurationSeconds or
+                    FieldType.DurationMinutes or
+                    FieldType.DurationMilliseconds
+                        => TMPro.TextAlignmentOptions.Left,
+
+                    FieldType.String or
+                    FieldType.DateTimeOffset
+                        => TMPro.TextAlignmentOptions.Center,
+
+                    _ => null
+                }
+            };
+        }
+
         public static event Action<UserData> OnUserLogin;
         public static event Action OnUserLogout;
         public static event Action<UserProjectRecordSheet> OnUserProjectRecordUpdated;
@@ -1028,7 +1071,22 @@ namespace EWova.LearningPortfolio
                     {
                         Api.Column _rawColumn = _rawColumns[j];
                         int CURRENT_COLUMN = j;
-                        FieldType TryParseFieldType(string fieldType) => Enum.TryParse(fieldType, true, out FieldType parsedFieldType) ? parsedFieldType : FieldType.String;
+                        FieldType TryParseFieldType(string fieldType)
+                        {
+                            return fieldType?.ToLowerInvariant() switch
+                            {
+                                "number" => FieldType.Number,
+                                "string" => FieldType.String,
+                                "boolean" => FieldType.Boolean,
+                                "percentage" => FieldType.Percentage,
+                                "duration_seconds" => FieldType.DurationSeconds,
+                                "duration_minutes" => FieldType.DurationMinutes,
+                                "duration_ms" => FieldType.DurationMilliseconds,
+                                "datetimeoffset" => FieldType.DateTimeOffset,
+                                _ => FieldType.String
+                            };
+                        }
+
                         Column column = page.Columns[CURRENT_COLUMN] = new Column
                         {
                             RootPage = page,
@@ -1392,16 +1450,7 @@ namespace EWova.LearningPortfolio
                     Columns = page.Columns.Select(_column => new ProjectRecordShower.ChartContent.Column()
                     {
                         Label = _column.Label,
-                        Cells = _column.Cells.Select(cell => new ProjectRecordShower.ChartContent.Cell()
-                        {
-                            IsReadOnly = _column.IsReadOnly,
-                            LabelText = cell.Text,
-                            OverrideAlignment = _column.FieldType switch
-                            {
-                                FieldType.Number => TMPro.TextAlignmentOptions.Left,
-                                _ => TMPro.TextAlignmentOptions.Center
-                            }
-                        }).ToArray(),
+                        Cells = _column.Cells.Select(cell => ChartCellViewProvider(_column, cell)).ToArray(),
                         CellsSummaryLabel = _column.Cells.Any() ? _column.CellsSummary : null,
                     }).ToArray()
                 };

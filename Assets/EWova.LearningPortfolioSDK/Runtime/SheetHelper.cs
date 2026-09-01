@@ -134,6 +134,20 @@ namespace EWova.LearningPortfolio
             throw new NotSupportedException($"Type {type.FullName} is not supported.");
         }
 
+        public static bool TryParseAny<T>(string str, out T result)
+        {
+            try
+            {
+                result = (T)ParseAny(typeof(T), str);
+                return true;
+            }
+            catch
+            {
+                result = default;
+                return false;
+            }
+        }
+
         /// <summary>
         /// 將物件欄位值依 <paramref name="targetPage"/> 的欄位順序對齊，組成字串陣列，用於「新增一筆列」的情境
         /// （可直接用於 <c>AddRowAndSetCells.Request</c>），故不需要（也不會用到）既有的 Row。

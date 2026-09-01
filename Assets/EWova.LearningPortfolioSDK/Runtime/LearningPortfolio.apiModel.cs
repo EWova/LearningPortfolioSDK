@@ -52,9 +52,14 @@ namespace EWova.LearningPortfolio
         }
         public enum FieldType
         {
-            Number,
-            String,
-            Boolean,
+            Number = 0,
+            String = 1,
+            Boolean = 2,
+            Percentage = 3,
+            DurationSeconds = 4,
+            DurationMinutes = 5,
+            DurationMilliseconds = 6,
+            DateTimeOffset = 7
         }
 
         /*
@@ -473,7 +478,7 @@ namespace EWova.LearningPortfolio
             /// </summary>
             public bool IsReadOnly { get; internal set; }
             /// <summary>
-            /// (*可修改項目) 欄位參考資料類型
+            /// 欄位參考資料類型
             /// </summary>
             public FieldType FieldType { get; internal set; }
             /// <summary>

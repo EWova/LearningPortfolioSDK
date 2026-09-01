@@ -175,6 +175,14 @@ write if a column that has no matching value is expected server-side (see `Playe
 backend. Calling `.Request(...)`/`.RequestAsync(...)` on `Edit` logs a warning and does not send a
 request or change `FieldType`.
 
+`FieldType` (`Number`/`String`/`Boolean`/`Percentage`/`DurationSeconds`/`DurationMinutes`/
+`DurationMilliseconds`/`DateTimeOffset`) is a display hint only — `SheetHelper` doesn't use it, cell
+values are always plain round-trippable strings. `ProjectRecordShower`'s built-in chart turns each cell
+into display text/alignment by calling `LearningPortfolio.ChartCellViewProvider` (a
+`Func<Column, Cell, ProjectRecordShower.ChartContent.Cell>`, default `DefaultChartCellViewProvider`) —
+reassign it to fully control how the chart renders a cell (a single delegate, last assignment wins, not
+additive like `ConnectBlocker`).
+
 ## Object ↔ row mapping via `SheetHelper` + `[Column]`
 
 For structured data, tag fields with `[EWova.LearningPortfolio.ColumnAttribute]` (optionally with a
