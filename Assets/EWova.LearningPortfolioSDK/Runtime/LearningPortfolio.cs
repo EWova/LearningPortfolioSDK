@@ -178,11 +178,19 @@ namespace EWova.LearningPortfolio
             const string UNIT = "#6B7280";
             const string NUMBER = "#2563EB";
 
+            if (string.IsNullOrWhiteSpace(text))
+                return new ChartCellDisplay(null, null);
+
             string labelText;
             TMPro.TextAlignmentOptions? overrideAlignment;
 
             switch (fieldType)
             {
+                default:
+                    labelText = $"<color={SECONDARY}>{text}</color>";
+                    overrideAlignment = null;
+                    break;
+
                 case FieldType.String:
                     labelText = $"<color={TEXT}>{text}</color>";
                     overrideAlignment = TMPro.TextAlignmentOptions.Center;
@@ -194,28 +202,20 @@ namespace EWova.LearningPortfolio
                         labelText = $"<color={NUMBER}>{d.ToString("0.##")}</color>";
                         overrideAlignment = TMPro.TextAlignmentOptions.Left;
                     }
-                    else
-                    {
-                        labelText = text;
-                        overrideAlignment = null;
-                    }
+                    else goto default;
                     break;
 
                 case FieldType.Boolean:
                     if (SheetHelper.TryParseAny<bool>(text, out var b))
                     {
                         labelText = b ? "✓" : "✗";
-                        overrideAlignment = null;
+                        overrideAlignment = TMPro.TextAlignmentOptions.Center;
                     }
-                    else
-                    {
-                        labelText = text;
-                        overrideAlignment = null;
-                    }
+                    else goto default;
                     break;
 
                 case FieldType.Percentage:
-                    labelText = $"<color={SECONDARY}>{text}</color>";
+                    labelText = $"<color={SECONDARY}>{text}%</color>";
                     overrideAlignment = TMPro.TextAlignmentOptions.Left;
                     break;
 
@@ -225,11 +225,7 @@ namespace EWova.LearningPortfolio
                         labelText = $"<color={NUMBER}>{dSec.ToString("0.##")}</color> <color={UNIT}>sec</color>";
                         overrideAlignment = TMPro.TextAlignmentOptions.Left;
                     }
-                    else
-                    {
-                        labelText = text;
-                        overrideAlignment = null;
-                    }
+                    else goto default;
                     break;
 
                 case FieldType.DurationMinutes:
@@ -238,11 +234,7 @@ namespace EWova.LearningPortfolio
                         labelText = $"<color={NUMBER}>{dMin.ToString("0.##")}</color> <color={UNIT}>min</color>";
                         overrideAlignment = TMPro.TextAlignmentOptions.Left;
                     }
-                    else
-                    {
-                        labelText = text;
-                        overrideAlignment = null;
-                    }
+                    else goto default;
                     break;
 
                 case FieldType.DurationMilliseconds:
@@ -251,11 +243,7 @@ namespace EWova.LearningPortfolio
                         labelText = $"<color={NUMBER}>{dMs.ToString("0.##")}</color> <color={UNIT}>ms</color>";
                         overrideAlignment = TMPro.TextAlignmentOptions.Left;
                     }
-                    else
-                    {
-                        labelText = text;
-                        overrideAlignment = null;
-                    }
+                    else goto default;
                     break;
 
                 case FieldType.DateTimeOffset:
@@ -264,16 +252,7 @@ namespace EWova.LearningPortfolio
                         labelText = dto.ToString("yyyy-MM-dd HH:mm:ss");
                         overrideAlignment = TMPro.TextAlignmentOptions.Center;
                     }
-                    else
-                    {
-                        labelText = text;
-                        overrideAlignment = null;
-                    }
-                    break;
-
-                default:
-                    labelText = $"<color={SECONDARY}>{text}</color>";
-                    overrideAlignment = null;
+                    else goto default;
                     break;
             }
 

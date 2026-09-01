@@ -686,7 +686,7 @@ namespace EWova.LearningPortfolio
                                 "duration_seconds" => FieldType.DurationSeconds,
                                 "duration_minutes" => FieldType.DurationMinutes,
                                 "duration_ms" => FieldType.DurationMilliseconds,
-                                "datetimeoffset" => FieldType.DateTimeOffset,
+                                "datetime_offset" => FieldType.DateTimeOffset,
                                 _ => FieldType.String
                             };
                         }

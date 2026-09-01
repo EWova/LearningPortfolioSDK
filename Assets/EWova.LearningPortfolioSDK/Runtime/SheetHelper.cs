@@ -57,10 +57,14 @@ namespace EWova.LearningPortfolio
                     o => (string)o,
                     s => s
                 ),
-                // 輸出 "o" 格式 ISO 8601: "2026-09-01T12:30:45.1234567+08:00"
                 [typeof(DateTimeOffset)] = (
-                    o => ((DateTimeOffset)o).ToString("o", CultureInfo.InvariantCulture),
-                    s => DateTimeOffset.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dto) ? dto : DateTimeOffset.MinValue
+                    o => ((DateTimeOffset)o).ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture),
+                    s => DateTimeOffset.TryParse(
+                        s,
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.RoundtripKind,
+                        out var dto
+                    ) ? dto : DateTimeOffset.MinValue
                 ),
                 // 四捨五入到秒 輸出 "c" 格式 "1.02:03:04" (1天2小時3分鐘4秒)
                 [typeof(TimeSpan)] = (
