@@ -210,33 +210,26 @@ namespace EWova.LearningPortfolio
             const string UNIT = "#6B7280";
             const string NUMBER = "#2563EB";
 
-            string labelText = fieldType switch
+            (string labelText, TMPro.TextAlignmentOptions? overrideAlignment) = fieldType switch
             {
-                FieldType.String => $"<color={TEXT}>{text}</color>",
-                FieldType.Number => SheetHelper.TryParseAny<double>(text, out var d) ? $"<color={NUMBER}>{d.ToString("0.##")}</color>" : text,
-                FieldType.Boolean => SheetHelper.TryParseAny<bool>(text, out var b) ? (b ? "✓" : "✗") : text,
-                FieldType.DurationSeconds => SheetHelper.TryParseAny<double>(text, out var dSec) ? $"<color={NUMBER}>{dSec.ToString("0.##")}</color> <color={UNIT}>sec</color>" : text,
-                FieldType.DurationMinutes => SheetHelper.TryParseAny<double>(text, out var dMin) ? $"<color={NUMBER}>{dMin.ToString("0.##")}</color> <color={UNIT}>min</color>" : text,
-                FieldType.DurationMilliseconds => SheetHelper.TryParseAny<double>(text, out var dMs) ? $"<color={NUMBER}>{dMs.ToString("0.##")}</color> <color={UNIT}>ms</color>" : text,
-                FieldType.DateTimeOffset => SheetHelper.TryParseAny<DateTimeOffset>(text, out var dto) ? dto.ToString("yyyy-MM-dd HH:mm:ss") : text,
-                _
-                    => $"<color={SECONDARY}>{text}</color>"
-            };
-
-            TMPro.TextAlignmentOptions? overrideAlignment = fieldType switch
-            {
-                FieldType.Number or
-                FieldType.Percentage or
-                FieldType.DurationSeconds or
-                FieldType.DurationMinutes or
+                FieldType.String
+                    => ($"<color={TEXT}>{text}</color>", TMPro.TextAlignmentOptions.Center),
+                FieldType.Number
+                    => (SheetHelper.TryParseAny<double>(text, out var d) ? $"<color={NUMBER}>{d.ToString("0.##")}</color>" : text, TMPro.TextAlignmentOptions.Left),
+                FieldType.Boolean
+                    => (SheetHelper.TryParseAny<bool>(text, out var b) ? (b ? "✓" : "✗") : text, (TMPro.TextAlignmentOptions?)null),
+                FieldType.Percentage
+                    => ($"<color={SECONDARY}>{text}</color>", TMPro.TextAlignmentOptions.Left),
+                FieldType.DurationSeconds
+                    => (SheetHelper.TryParseAny<double>(text, out var dSec) ? $"<color={NUMBER}>{dSec.ToString("0.##")}</color> <color={UNIT}>sec</color>" : text, TMPro.TextAlignmentOptions.Left),
+                FieldType.DurationMinutes
+                    => (SheetHelper.TryParseAny<double>(text, out var dMin) ? $"<color={NUMBER}>{dMin.ToString("0.##")}</color> <color={UNIT}>min</color>" : text, TMPro.TextAlignmentOptions.Left),
                 FieldType.DurationMilliseconds
-                    => TMPro.TextAlignmentOptions.Left,
-
-                FieldType.String or
+                    => (SheetHelper.TryParseAny<double>(text, out var dMs) ? $"<color={NUMBER}>{dMs.ToString("0.##")}</color> <color={UNIT}>ms</color>" : text, TMPro.TextAlignmentOptions.Left),
                 FieldType.DateTimeOffset
-                    => TMPro.TextAlignmentOptions.Center,
-
-                _ => null
+                    => (SheetHelper.TryParseAny<DateTimeOffset>(text, out var dto) ? dto.ToString("yyyy-MM-dd HH:mm:ss") : text, TMPro.TextAlignmentOptions.Center),
+                _
+                    => ($"<color={SECONDARY}>{text}</color>", (TMPro.TextAlignmentOptions?)null)
             };
 
             return new ChartCellDisplay(labelText, overrideAlignment);
