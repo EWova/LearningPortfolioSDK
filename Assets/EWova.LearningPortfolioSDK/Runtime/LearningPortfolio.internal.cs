@@ -1056,12 +1056,12 @@ namespace EWova.LearningPortfolio
                         Label = _column.Label,
                         Cells = _column.Cells.Select(cell =>
                         {
-                            ChartCellDisplay display = ChartCellViewProvider(_column.FieldType, cell.Text);
+                            ChartCellDisplay display = ChartCellViewRenderer((_column.IsReadOnly, _column.FieldType, cell.Text));
                             return new ProjectRecordShower.ChartContent.Cell
                             {
                                 IsReadOnly = _column.IsReadOnly,
                                 LabelText = display.LabelText,
-                                OverrideAlignment = display.OverrideAlignment
+                                OverrideAlignment = display.OverrideAlignment,
                             };
                         }).ToArray(),
                         CellsSummaryLabel = _column.Cells.Any() ? _column.CellsSummary : null,

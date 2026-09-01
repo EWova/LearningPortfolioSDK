@@ -583,8 +583,7 @@ namespace EWova.LearningPortfolio
                     {
                         ChartContent.Cell cell = column.Cells[i];
                         ProjectRecordShowerCell newCell = newColumn.AddCell(cell.IsReadOnly);
-                        if (cell.OverrideAlignment != null)
-                            newCell.LabelTextAlignment = cell.OverrideAlignment.Value;
+                        newCell.OverrideTextAlignmentOptions = cell.OverrideAlignment;
                         newCell.LabelText = cell.LabelText;
                     }
 

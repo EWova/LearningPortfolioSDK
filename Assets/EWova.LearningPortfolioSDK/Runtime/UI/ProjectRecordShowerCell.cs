@@ -12,9 +12,34 @@ namespace EWova.LearningPortfolio
         public Image BackgroundImage;
         public LayoutElement LayoutElement;
 
+        private TextAlignmentOptions _originTextAlignmentOptions;
+        private TextAlignmentOptions _destinationTextAlignmentOptions;
+        public TextAlignmentOptions? OverrideTextAlignmentOptions 
+        {
+            get
+            {
+                if (_destinationTextAlignmentOptions == _originTextAlignmentOptions)
+                    return null;
+                return _destinationTextAlignmentOptions;
+            }
+            set
+            {
+                if (value == null)
+                {
+                    _destinationTextAlignmentOptions = _originTextAlignmentOptions;
+                }
+                else
+                {
+                    _destinationTextAlignmentOptions = value.Value;
+                }
+                Label.alignment = _destinationTextAlignmentOptions;
+            }
+        }
+
         public void Init()
         {
-
+            _originTextAlignmentOptions = Label.alignment;
+            _destinationTextAlignmentOptions = _originTextAlignmentOptions;
         }
 
         public void ForceUpdate()

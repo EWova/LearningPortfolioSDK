@@ -142,14 +142,14 @@ namespace EWova.LearningPortfolio
         }
 
         /// <summary>
-        /// <see cref="ChartCellViewProvider"/> 的回傳結果：圖表儲存格要顯示的文字，以及（可選的）文字對齊方式覆寫。
+        /// <see cref="ChartCellViewRenderer"/> 的回傳結果：圖表儲存格要顯示的文字，以及（可選的）文字對齊方式覆寫。
         /// </summary>
         public readonly struct ChartCellDisplay
         {
             public readonly string LabelText;
             public readonly TMPro.TextAlignmentOptions? OverrideAlignment;
 
-            public ChartCellDisplay(string labelText, TMPro.TextAlignmentOptions? overrideAlignment = null)
+            public ChartCellDisplay(string labelText, TMPro.TextAlignmentOptions? overrideAlignment = null, bool? overrideUseMonoSpace = null)
             {
                 LabelText = labelText;
                 OverrideAlignment = overrideAlignment;
@@ -161,22 +161,25 @@ namespace EWova.LearningPortfolio
         /// (<paramref name="fieldType"/>) 轉換為顯示用的 <see cref="ChartCellDisplay"/>（LabelText / 對齊方式）。
         /// </summary>
         /// <remarks>
-        /// 預設值為 <see cref="DefaultChartCellViewProvider"/>；第三方可以直接改指派這個委派，換成自己的顯示邏輯
+        /// 預設值為 <see cref="DefaultChartCellViewRenderer"/>；第三方可以直接改指派這個委派，換成自己的顯示邏輯
         /// （例如自訂日期格式、加上單位、改變對齊方式等），或是在自訂邏輯內先呼叫
-        /// <see cref="DefaultChartCellViewProvider"/> 再微調回傳結果。刻意只開放 <see cref="FieldType"/> 與原始文字
+        /// <see cref="DefaultChartCellViewRenderer"/> 再微調回傳結果。刻意只開放 <see cref="FieldType"/> 與原始文字
         /// 兩個輸入，不直接暴露 <see cref="Column"/>/<see cref="Cell"/>。
         /// </remarks>
-        public static Func<FieldType, string, ChartCellDisplay> ChartCellViewProvider = DefaultChartCellViewProvider;
+        public static Func<(bool isReadonly, FieldType fieldType, string text), ChartCellDisplay> ChartCellViewRenderer = DefaultChartCellViewRenderer;
 
         /// <summary>
-        /// <see cref="ChartCellViewProvider"/> 的預設實作。
+        /// <see cref="ChartCellViewRenderer"/> 的預設實作。
         /// </summary>
-        public static ChartCellDisplay DefaultChartCellViewProvider(FieldType fieldType, string text)
+        public static ChartCellDisplay DefaultChartCellViewRenderer((bool, FieldType, string) args)
         {
-            const string TEXT = "#374151";
-            const string SECONDARY = "#6B7280";
-            const string UNIT = "#6B7280";
-            const string NUMBER = "#2563EB";
+            var (isReadonly, fieldType, text) = args;
+
+            const string READONLY  = "#7D57F8";
+            const string PRIMARY   = "#2f2c39";
+            const string SECONDARY = "#2b1011";
+            const string UNIT      = "#39393a";
+            const string NUMBER    = PRIMARY;
 
             if (string.IsNullOrWhiteSpace(text))
                 return new ChartCellDisplay(null, null);
@@ -187,20 +190,23 @@ namespace EWova.LearningPortfolio
             switch (fieldType)
             {
                 default:
-                    labelText = $"<color={SECONDARY}>{text}</color>";
+                    var defaultCol = isReadonly ? READONLY : SECONDARY;
+                    labelText = $"<color={defaultCol}>{text}</color>";
                     overrideAlignment = null;
                     break;
 
                 case FieldType.String:
-                    labelText = $"<color={TEXT}>{text}</color>";
+                    var strCol = isReadonly ? READONLY : PRIMARY;
+                    labelText = $"<color={strCol}>{text}</color>";
                     overrideAlignment = TMPro.TextAlignmentOptions.Center;
                     break;
 
                 case FieldType.Number:
                     if (SheetHelper.TryParseAny<double>(text, out var d))
                     {
-                        labelText = $"<color={NUMBER}>{d.ToString("0.##")}</color>";
-                        overrideAlignment = TMPro.TextAlignmentOptions.Left;
+                        var numCol = isReadonly ? READONLY : NUMBER;
+                        labelText = $"<color={numCol}>{d.ToString("0.##")}</color>";
+                        overrideAlignment = TMPro.TextAlignmentOptions.Center;
                     }
                     else goto default;
                     break;
@@ -208,22 +214,27 @@ namespace EWova.LearningPortfolio
                 case FieldType.Boolean:
                     if (SheetHelper.TryParseAny<bool>(text, out var b))
                     {
-                        labelText = b ? "✓" : "✗";
+                        if (isReadonly)
+                            labelText = b ? $"<color={READONLY}>V</color>" : $"<color={READONLY}>X</color>";
+                        else
+                            labelText = b ? "V" : "X";
                         overrideAlignment = TMPro.TextAlignmentOptions.Center;
                     }
                     else goto default;
                     break;
 
                 case FieldType.Percentage:
-                    labelText = $"<color={SECONDARY}>{text}%</color>";
-                    overrideAlignment = TMPro.TextAlignmentOptions.Left;
+                    var percentageCol = isReadonly ? READONLY : PRIMARY;
+                    labelText = $"<color={percentageCol}>{text}</color> <color={UNIT}>%</color>";
+                    overrideAlignment = TMPro.TextAlignmentOptions.Right;
                     break;
 
                 case FieldType.DurationSeconds:
                     if (SheetHelper.TryParseAny<double>(text, out var dSec))
                     {
-                        labelText = $"<color={NUMBER}>{dSec.ToString("0.##")}</color> <color={UNIT}>sec</color>";
-                        overrideAlignment = TMPro.TextAlignmentOptions.Left;
+                        var durationSCol = isReadonly ? READONLY : NUMBER;
+                        labelText = $"<color={durationSCol}>{dSec.ToString("0.##")}</color> <color={UNIT}>s</color>";
+                        overrideAlignment = TMPro.TextAlignmentOptions.Right;
                     }
                     else goto default;
                     break;
@@ -231,8 +242,9 @@ namespace EWova.LearningPortfolio
                 case FieldType.DurationMinutes:
                     if (SheetHelper.TryParseAny<double>(text, out var dMin))
                     {
-                        labelText = $"<color={NUMBER}>{dMin.ToString("0.##")}</color> <color={UNIT}>min</color>";
-                        overrideAlignment = TMPro.TextAlignmentOptions.Left;
+                        var durationMCol = isReadonly ? READONLY : NUMBER;
+                        labelText = $"<color={durationMCol}>{dMin.ToString("0.##")}</color> <color={UNIT}>m</color>";
+                        overrideAlignment = TMPro.TextAlignmentOptions.Right;
                     }
                     else goto default;
                     break;
@@ -240,8 +252,9 @@ namespace EWova.LearningPortfolio
                 case FieldType.DurationMilliseconds:
                     if (SheetHelper.TryParseAny<double>(text, out var dMs))
                     {
-                        labelText = $"<color={NUMBER}>{dMs.ToString("0.##")}</color> <color={UNIT}>ms</color>";
-                        overrideAlignment = TMPro.TextAlignmentOptions.Left;
+                        var durationMsCol = isReadonly ? READONLY : NUMBER;
+                        labelText = $"<color={durationMsCol}>{dMs.ToString("0.##")}</color> <color={UNIT}>ms</color>";
+                        overrideAlignment = TMPro.TextAlignmentOptions.Right;
                     }
                     else goto default;
                     break;
@@ -249,8 +262,9 @@ namespace EWova.LearningPortfolio
                 case FieldType.DateTimeOffset:
                     if (SheetHelper.TryParseAny<DateTimeOffset>(text, out var dto))
                     {
-                        labelText = dto.ToString("yyyy-MM-dd HH:mm:ss");
-                        overrideAlignment = TMPro.TextAlignmentOptions.Center;
+                        var dateCol = isReadonly ? READONLY : PRIMARY;
+                        labelText = $"<color={dateCol}>{dto.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")}</color>";
+                        overrideAlignment = TMPro.TextAlignmentOptions.Left;
                     }
                     else goto default;
                     break;
