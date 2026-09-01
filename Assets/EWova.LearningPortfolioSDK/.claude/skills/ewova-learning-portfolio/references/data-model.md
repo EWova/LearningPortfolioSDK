@@ -178,19 +178,21 @@ request or change `FieldType`.
 `FieldType` (`Number`/`String`/`Boolean`/`Percentage`/`DurationSeconds`/`DurationMinutes`/
 `DurationMilliseconds`/`DateTimeOffset`) is a display hint only — `SheetHelper` doesn't use it, cell
 values are always plain round-trippable strings. `ProjectRecordShower`'s built-in chart turns each cell
-into display text/alignment by calling `LearningPortfolio.ChartCellViewProvider` (a
-`Func<FieldType, string, LearningPortfolio.ChartCellDisplay>`, default `DefaultChartCellViewProvider`) —
-reassign it to fully control how the chart renders a cell (a single delegate, last assignment wins, not
-additive like `ConnectBlocker`). It intentionally only takes the raw `FieldType` + cell text, not the
-`Column`/`Cell` objects, and returns `ChartCellDisplay { LabelText, OverrideAlignment }`:
+into display text/alignment by calling `LearningPortfolio.ChartCellViewRenderer` (a
+`Func<(bool isReadonly, FieldType fieldType, string text), LearningPortfolio.ChartCellDisplay>`, default
+`DefaultChartCellViewRenderer`) — reassign it to fully control how the chart renders a cell (a single
+delegate, last assignment wins, not additive like `ConnectBlocker`). It intentionally only takes the
+column's `IsReadOnly` + raw `FieldType` + cell text, not the `Column`/`Cell` objects, and returns
+`ChartCellDisplay { LabelText, OverrideAlignment }`:
 
 ```csharp
-LearningPortfolio.ChartCellViewProvider = (fieldType, text) =>
+LearningPortfolio.ChartCellViewRenderer = args =>
 {
+    var (isReadonly, fieldType, text) = args;
     if (fieldType == LearningPortfolio.FieldType.Boolean)
         return new LearningPortfolio.ChartCellDisplay(text == "true" ? "是" : "否");
 
-    return LearningPortfolio.DefaultChartCellViewProvider(fieldType, text); // fall back to default for the rest
+    return LearningPortfolio.DefaultChartCellViewRenderer(args); // fall back to default for the rest
 };
 ```
 

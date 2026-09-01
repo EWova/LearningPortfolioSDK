@@ -1,8 +1,11 @@
 # Changelog
 ## [2026.8.5] - 2026-09-01
+### Added
+- 新增 `LearningPortfolio.ChartCellViewRenderer`，可自訂 `ProjectRecordShower` 圖表儲存格的顯示文字與對齊方式（預設會依欄位是否唯讀套用不同樣式）
 ### Changed
 - **(Breaking)** `[Column]` 欄位若為日期時間，請改用 `DateTimeOffset`（不再支援 `DateTime`，可保留明確的 UTC offset）
 - **(Breaking)** `SheetHelper` 遇到不支援的欄位型別時，現在會直接拋出例外，不再靜默轉換成不可逆的格式
+- **(Breaking)** `Column.Edit` 已棄用，呼叫不會再實際送出欄位型別修改請求（欄位型別已改由後台管理）
 ## [2026.8.4] - 2026-08-28
 ### Added
 - `SheetHelper` 新增 `WarmUp` / `Release`，可手動控制欄位對應快取的預熱與釋放時機
