@@ -64,7 +64,10 @@ contains a fully worked reference project (`Template.cs`, `YourGame.cs`, `Player
 - `LearningPortfolioEWovaAuth` (the type of `LearningPortfolio.EWovaAuth`) — `internal` constructor and
   `internal` `ApiKey` setter. Read it (e.g. `LearningPortfolio.EWovaAuth.IsAuthenticated`,
   `.CurrentUser`) but don't construct one; those members actually come from `EWova.Auth.AuthProvider`
-  in the `com.ewova.core` dependency, not this package.
+  in the `com.ewova.core` dependency, not this package. `.CurrentUser` (and
+  `LPApiClient.AuthenticatedUserProfile`) is `EWova.Auth.UserIdentity?` — a nullable JWT-payload wrapper,
+  not the old `UserProfile` — so read fields via `.Value.Payload.Name` / `.Payload.Nickname` /
+  `.Payload.OrgId` / `.Payload.OrgName` / `.Payload.Subject`, guarding on `null` first.
 - `EWova.Authoring.*` (`LearningPortfolioEditorPrefs`, `EditorDomainReleaseHelper`, `DevelopTip`,
   `EditorLogger`) and everything under `Editor/` — compiled only in `UNITY_EDITOR`, drive the Welcome
   Window / custom inspector / dev-only "disable force login" toggle. Not runtime API.
@@ -173,6 +176,10 @@ shower.Close();
   view logic, or wrap `LearningPortfolio.DefaultChartCellViewRenderer` to tweak its output (the default
   renderer already picks different colors for read-only vs. editable cells). This is a single overridable
   delegate, not an additive list like `ConnectBlocker` — the last assignment wins.
+- `LearningPortfolio.RememberAutoFillOnAuthorizationSuccess` (default `true`) controls whether a
+  successful authorization remembers the user's credentials for auto-fill on the next login. It's a
+  thin pass-through to `LearningPortfolioEWovaAuth.RememberAutoFillOnAuthorizationSuccess`; set it any
+  time (even before `Init()` runs) and the value is applied once `EWovaAuth` exists.
 - The login prefab has an editor-only "Disable Force Login" convenience toggle
   (`EWova/Editor/Learning Portfolio/Disable Force Login`) that only affects Play Mode in the Editor,
   never a build.

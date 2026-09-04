@@ -36,6 +36,7 @@ namespace EWova.LearningPortfolio
                 DontDestroyOnLoad(s_instance.gameObject);
             }
         }
+        private static bool _rememberAutoFillOnAuthorizationSuccess = true;
 
         private LPApiClient m_apiClient;
         [SerializeField] private UserData m_loginUserData;
@@ -168,9 +169,9 @@ namespace EWova.LearningPortfolio
             process.Progress = 0.2f;
 
             var client = new LPApiClient(EWovaAuth, logger: ApiClientLogger);
-            var pendingUserData = client.AuthenticatedUserProfile;
+            var pendingUserData = client.AuthenticatedUserProfile.Value;
             var instance = new GameObject().AddComponent<LearningPortfolio>();
-            instance.gameObject.name = $"{Name} ({pendingUserData.Nickname}) connecting...";
+            instance.gameObject.name = $"{Name} ({pendingUserData.Payload.Name}) connecting...";
             instance.enabled = false;
             instance.m_apiClient = client;
 
@@ -195,7 +196,7 @@ namespace EWova.LearningPortfolio
             }
             else
             {
-                instance.gameObject.name = $"{Name} ({pendingUserData.Nickname})";
+                instance.gameObject.name = $"{Name} ({pendingUserData.Payload.Nickname})";
                 instance.enabled = true;
                 instance.KeepLoginUsageRecordHeartbeat().Forget();
 
@@ -304,7 +305,9 @@ namespace EWova.LearningPortfolio
                 process.Progress = 0.4f;
                 process.Status = ConnectStatus.CreateProjectUsageSheet;
                 var info = DeviceHelper.GetDeviceInfo();
-                var authUserProfile = client.AuthenticatedUserProfile;
+                if (client.AuthenticatedUserProfile == null)
+                    throw new Exception("AuthenticatedUserProfile is null, cannot create project usage record.");
+                var authUserProfile = client.AuthenticatedUserProfile.Value;
                 var record = await client.CreateProjectUsageRecordAsync
                 (
                     project.Id.ToString(),
@@ -315,7 +318,7 @@ namespace EWova.LearningPortfolio
 #pragma warning restore CS0618 // 類型或成員已經過時
 
                         // 這邊回呼後台傳來的當前組織，尚未實作多組織切換
-                        OrgId = authUserProfile.OrgId.ToString(),
+                        OrgId = authUserProfile.Payload.OrgId,
                         Platform = info.Platform,
                         DeviceModel = info.DeviceModel,
                         IsXRActive = info.IsXRActive
@@ -324,11 +327,11 @@ namespace EWova.LearningPortfolio
 
                 var userData = new UserData()
                 {
-                    Name = authUserProfile.Name,
-                    Nickname = authUserProfile.Nickname,
-                    Guid = authUserProfile.Id.ToString(),
-                    OrgName = authUserProfile.OrgName,
-                    OrgGuid = authUserProfile.OrgId.ToString(),
+                    Name = authUserProfile.Payload.Name,
+                    Nickname = authUserProfile.Payload.Nickname,
+                    Guid = authUserProfile.Payload.Subject,
+                    OrgName = authUserProfile.Payload.OrgName,
+                    OrgGuid = authUserProfile.Payload.OrgId,
                 };
 
                 // 成功建立
@@ -1070,7 +1073,7 @@ namespace EWova.LearningPortfolio
                 plane.AddPage(page.Label, content);
             }
 
-            plane.Footer.text = $"正在檢視 <color=#F80>{EWovaAuth.CurrentUser.Nickname}</color> 的學習資料！ 目前的學習完成度為 <color=#F80>{(int)(userProjectRecord.CompletionProgress * 100f)}%</color> ！";
+            plane.Footer.text = $"正在檢視 <color=#F80>{EWovaAuth.CurrentUser.Value.Payload.Nickname}</color> 的學習資料！ 目前的學習完成度為 <color=#F80>{(int)(userProjectRecord.CompletionProgress * 100f)}%</color> ！";
         }
     }
 }

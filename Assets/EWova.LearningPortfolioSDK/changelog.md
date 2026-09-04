@@ -1,4 +1,9 @@
 # Changelog
+## [2026.8.6] - 2026-09-04
+### Added
+- 新增 `LearningPortfolio.RememberAutoFillOnAuthorizationSuccess`，可控制授權成功後是否記住使用者帳號密碼供下次登入自動填入（預設 `true`）
+### Changed
+- **(Breaking)** 依賴 `com.ewova.core` 升級至 1.8.0：`Auth.UserProfile` 改為 `Auth.UserIdentity`（JWT payload 包裝的唯讀結構），`LearningPortfolioEWovaAuth.CurrentUser` 與 `LPApiClient.AuthenticatedUserProfile` 型別隨之改為可為 `null` 的 `UserIdentity?`，需改用 `.Value.Payload.X` 存取使用者欄位（例如 `.Payload.Name`、`.Payload.Nickname`、`.Payload.OrgId`、`.Payload.OrgName`、`.Payload.Subject`）
 ## [2026.8.5] - 2026-09-01
 ### Added
 - 新增 `LearningPortfolio.ChartCellViewRenderer`，可自訂 `ProjectRecordShower` 圖表儲存格的顯示文字與對齊方式（預設會依欄位是否唯讀套用不同樣式）

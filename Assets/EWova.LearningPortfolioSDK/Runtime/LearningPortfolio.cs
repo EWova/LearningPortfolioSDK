@@ -55,10 +55,14 @@ namespace EWova.LearningPortfolio
         [RuntimeInitializeOnLoadMethod(loadType: RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         public static void Init()
         {
-            EWovaAuth = new LearningPortfolioEWovaAuth();
+            EWovaAuth = new LearningPortfolioEWovaAuth
+            {
+                RememberAutoFillOnAuthorizationSuccess = _rememberAutoFillOnAuthorizationSuccess
+            };
 #if UNITY_EDITOR
             Authoring.EditorDomainReleaseHelper.CleanupOneShot += () =>
             {
+                _rememberAutoFillOnAuthorizationSuccess = true; // Default value for next domain reload
                 OnUserLogin = null;
                 OnUserLogout = null;
                 OnUserProjectRecordUpdated = null;
@@ -104,6 +108,22 @@ namespace EWova.LearningPortfolio
         /// 檢查當前的 API 設定是否有效，若無效則無法進行 API 請求
         /// </summary>
         public static bool IsProjectSettingsValid => CurrentProjectSettings?.IsValid(out _) ?? false;
+        /// <summary>
+        /// 是否在授權成功後，記住使用者的帳號密碼自動填入下一次登入流程。預設為 true。
+        /// </summary>
+        public static bool RememberAutoFillOnAuthorizationSuccess
+        {
+            get
+            {
+                return EWovaAuth?.RememberAutoFillOnAuthorizationSuccess ?? _rememberAutoFillOnAuthorizationSuccess;
+            }
+            set
+            {
+                _rememberAutoFillOnAuthorizationSuccess = value;
+                if (EWovaAuth != null)
+                    EWovaAuth.RememberAutoFillOnAuthorizationSuccess = value;
+            }
+        }
 
         public static bool IsConnected => Instance != null;
         public static bool IsHasUserProjectRecord => IsConnected && Instance.m_currentUserProjectSheet != null;
@@ -175,11 +195,11 @@ namespace EWova.LearningPortfolio
         {
             var (isReadonly, fieldType, text) = args;
 
-            const string READONLY  = "#7D57F8";
-            const string PRIMARY   = "#2f2c39";
+            const string READONLY = "#7D57F8";
+            const string PRIMARY = "#2f2c39";
             const string SECONDARY = "#2b1011";
-            const string UNIT      = "#39393a";
-            const string NUMBER    = PRIMARY;
+            const string UNIT = "#39393a";
+            const string NUMBER = PRIMARY;
 
             if (string.IsNullOrWhiteSpace(text))
                 return new ChartCellDisplay(null, null);

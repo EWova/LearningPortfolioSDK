@@ -215,7 +215,7 @@ namespace EWova.LearningPortfolio
             _loginHandler = null;
         }
         // 連線處理中，但尚未完成取得使用者資料，用於在 UI 上顯示連線處理中的使用者資訊 (此時連線尚未完成)
-        private Auth.UserProfile _connectingPendingUserData = null;
+        private Auth.UserIdentity? _connectingPendingUserData = null;
         private void TryLoginWithUrl()
         {
             if (CurrentStatus == Status.CheckAvailabilityProcessing)
@@ -484,8 +484,10 @@ namespace EWova.LearningPortfolio
 
                 case Status.LPConnectGettingUserData:
                     UI.LoginInfoRoot.SetActive(true);
-                    UI.LoginInfoAccountOrg.text = _connectingPendingUserData.OrgName;
-                    UI.LoginInfoAccountName.text = _connectingPendingUserData.Name;
+                    var orgName = _connectingPendingUserData?.Payload.OrgName ?? "";
+                    var nickName = _connectingPendingUserData?.Payload.Nickname ?? "";
+                    UI.LoginInfoAccountOrg.text = orgName;
+                    UI.LoginInfoAccountName.text = nickName;
 
                     UI.SetLoginStateText("");
                     UI.LoginRoot.SetActive(true);

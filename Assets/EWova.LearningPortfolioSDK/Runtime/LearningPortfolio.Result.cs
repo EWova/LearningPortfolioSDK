@@ -209,10 +209,7 @@ namespace EWova.LearningPortfolio
     {
         public ConnectProcess() { }
         public static ConnectProcess Success(LearningPortfolio data) => new() { Data = data };
-
-#nullable enable
-        public Auth.UserProfile? PendingAuthUserProfile;
-#nullable restore
+        public Auth.UserIdentity? PendingAuthUserProfile;
     }
     public enum ConnectStatus
     {
