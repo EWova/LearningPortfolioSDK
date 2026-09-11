@@ -556,21 +556,30 @@ namespace EWova.LearningPortfolio
                             SetProgressNode(ref pNode.Children[i], rawNode.Children[i], pNode);
                     }
                 }
-                SetProgressNode(ref progressNodeTemp, _rawSheet.ProgressNode, null);
 
-                var allProgressNodesPathMapTemp = new Dictionary<string, ProgressNode>(StringComparer.OrdinalIgnoreCase);
-                void AfterProcessNode(ProgressNode pNode)
+                Dictionary<string, ProgressNode> allProgressNodesPathMapTemp;
+                if (_rawSheet.ProgressNode != null)
                 {
-                    allProgressNodesPathMapTemp[pNode.Path] = pNode;
+                    SetProgressNode(ref progressNodeTemp, _rawSheet.ProgressNode, null);
 
-                    pNode.CalculatedProgressScore = totalScoreWeight == 0 ? 0 : (pNode.ScoreWeight / totalScoreWeight);
-                    if (pNode.Children != null)
+                    allProgressNodesPathMapTemp = new Dictionary<string, ProgressNode>(StringComparer.OrdinalIgnoreCase);
+                    void AfterProcessNode(ProgressNode pNode)
                     {
-                        for (int i = 0; i < pNode.Children.Length; i++)
-                            AfterProcessNode(pNode.Children[i]);
+                        allProgressNodesPathMapTemp[pNode.Path] = pNode;
+
+                        pNode.CalculatedProgressScore = totalScoreWeight == 0 ? 0 : (pNode.ScoreWeight / totalScoreWeight);
+                        if (pNode.Children != null)
+                        {
+                            for (int i = 0; i < pNode.Children.Length; i++)
+                                AfterProcessNode(pNode.Children[i]);
+                        }
                     }
+                    AfterProcessNode(progressNodeTemp);
                 }
-                AfterProcessNode(progressNodeTemp);
+                else
+                {
+                    allProgressNodesPathMapTemp = new();
+                }
 
                 RESULT.ProgressNode = progressNodeTemp;
                 RESULT.AllProgressNodesPathMap = allProgressNodesPathMapTemp;
@@ -1014,7 +1023,7 @@ namespace EWova.LearningPortfolio
         {
             plane.Clear();
 
-            // Progress Graph
+            // 進度節點
             {
                 static ProjectRecordShower.GraphContent.Node Convert(ProgressNode pn)
                 {
@@ -1041,11 +1050,15 @@ namespace EWova.LearningPortfolio
 
                     return result;
                 }
-                ProjectRecordShower.GraphContent content = new()
+
+                if (userProjectRecord.ProgressNode != null)
                 {
-                    Root = Convert(userProjectRecord.ProgressNode)
-                };
-                plane.SetGraph(content);
+                    ProjectRecordShower.GraphContent content = new()
+                    {
+                        Root = Convert(userProjectRecord.ProgressNode)
+                    };
+                    plane.SetGraph(content);
+                }
             }
 
             // Chart
