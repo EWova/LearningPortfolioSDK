@@ -40,7 +40,7 @@ namespace EWova.LearningPortfolio
                     $"Publicity = {Publicity},\n" +
                     $"Description = {Description},\n" +
                     $"ThumbnailUrl = {ThumbnailUrl},\n" +
-                    $"SupportMail = {SupportMail},\n";
+                    $"SupportMail = {SupportMail}";
             }
         }
         [Preserve]
