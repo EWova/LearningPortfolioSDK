@@ -29,6 +29,7 @@ namespace EWova.LearningPortfolio
             public string Description;
             public string ThumbnailUrl;
             public string SupportMail;
+            internal string AppId;
             public override string ToString()
             {
                 return
@@ -39,7 +40,7 @@ namespace EWova.LearningPortfolio
                     $"Publicity = {Publicity},\n" +
                     $"Description = {Description},\n" +
                     $"ThumbnailUrl = {ThumbnailUrl},\n" +
-                    $"SupportMail = {SupportMail}";
+                    $"SupportMail = {SupportMail},\n";
             }
         }
         [Preserve]

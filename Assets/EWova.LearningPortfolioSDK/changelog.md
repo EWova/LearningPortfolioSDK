@@ -1,4 +1,8 @@
 # Changelog
+## [2026.9.0] - 2026-09-11
+### Fixed
+- 修正登入完成後跳轉回遊戲失敗的問題（連線時會一併更新必要的 AppId 設定）
+- 修正完全沒有進度節點時，呼叫 `SetProgressNode` 與繪製進度圖表可能拋出例外的問題
 ## [2026.8.6] - 2026-09-04
 ### Added
 - 新增 `LearningPortfolio.RememberAutoFillOnAuthorizationSuccess`，可控制授權成功後是否記住使用者帳號密碼供下次登入自動填入（預設 `true`）
