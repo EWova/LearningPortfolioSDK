@@ -1,4 +1,7 @@
 # Changelog
+## [2026.9.1] - 2026-09-11
+### Fixed
+- 修正 `EWovaLoginPlane` 在使用者已透過 `launch_ticket`（例如冷啟動 DeepLink）完成驗證後，仍須手動再按一次登入按鈕才會繼續連線流程的問題
 ## [2026.9.0] - 2026-09-11
 ### Changed
 - 依賴 `com.ewova.core` 升級至 1.9.0

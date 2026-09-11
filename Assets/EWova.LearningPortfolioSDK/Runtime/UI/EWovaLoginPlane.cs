@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using UnityEngine.Events;
 
+using EWova.Auth;
+
 using System.Threading;
 using System;
 
@@ -65,6 +67,8 @@ namespace EWova.LearningPortfolio
         }
         private void OnEnable()
         {
+            LearningPortfolio.EWovaAuth.OnAuthStateChanged += OnEWovaAuthStateChanged;
+
             if (LearningPortfolio.IsConnected)
                 CurrentStatus = Status.LPConnectOK;
             else
@@ -72,7 +76,18 @@ namespace EWova.LearningPortfolio
         }
         private void OnDisable()
         {
+            LearningPortfolio.EWovaAuth.OnAuthStateChanged -= OnEWovaAuthStateChanged;
             CurrentStatus = Status.None;
+        }
+        // 因為 LPAuth 可能透過 launch_ticket (如冷啟動 DeepLink) 在背景完成驗證，
+        // 此時不需要也不應該讓使用者手動再按一次登入按鈕，應自動接續登入流程。
+        private void OnEWovaAuthStateChanged(AuthState state)
+        {
+            if (state != AuthState.Authenticated)
+                return;
+
+            if (CurrentStatus == Status.CheckAvailabilityOK)
+                TryLoginWithUrl();
         }
         private void Awake()
         {
@@ -132,6 +147,11 @@ namespace EWova.LearningPortfolio
                     if (result.IsSuccess)
                     {
                         CurrentStatus = Status.CheckAvailabilityOK;
+
+                        // LPAuth 可能已經透過 launch_ticket (如冷啟動 DeepLink) 在背景完成驗證，
+                        // 此時不需要也不應該讓使用者手動再按一次登入按鈕，應自動接續登入流程。
+                        if (LearningPortfolio.EWovaAuth.IsAuthenticated)
+                            TryLoginWithUrl();
                     }
                     else
                     {
