@@ -29,7 +29,6 @@ namespace EWova.LearningPortfolio
             public string Description;
             public string ThumbnailUrl;
             public string SupportMail;
-            internal string AppId;
             public override string ToString()
             {
                 return

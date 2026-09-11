@@ -17,14 +17,5 @@ namespace EWova.LearningPortfolio
         { }
 
         internal string ApiKey { get; set; } = null;
-
-        public override string AppId => InternalAppId;
-        internal string InternalAppId { get; set; }
-
-        protected override void InternalOnAuthStateChanged(AuthState authState)
-        {
-            if (authState == AuthState.Unauthenticated)
-                InternalAppId = null;
-        }
     }
 }

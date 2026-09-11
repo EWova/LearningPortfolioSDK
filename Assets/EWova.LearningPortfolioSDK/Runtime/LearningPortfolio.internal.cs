@@ -202,7 +202,6 @@ namespace EWova.LearningPortfolio
 
                 process.Progress = 1.0f;
                 process.Status = ConnectStatus.Success;
-                EWovaAuth.InternalAppId = instance.m_connectedProject.AppId;
                 Instance = instance;
                 OnUserLogin.InvokeSafely(Instance.m_loginUserData, onThrow: ex =>
                 {
