@@ -830,16 +830,18 @@ namespace EWova.LearningPortfolio
 
                         if (rawColumnSummaries == null || rawColumnSummaries.Length == 0)
                         {
-                            foreach (var col in page.Columns)
-                                col.CellsSummary = string.Empty;
-                            return;
+                            for (int column = 0; column < page.Columns.Length; column++)
+                            {
+                                page.Columns[column].CellsSummary = string.Empty;
+                            }
                         }
-
-                        for (int i = 0; i < page.Columns.Length; i++)
+                        else
                         {
-                            int CURRENT_COLUMN = i;
-                            Api.ColumnSummary rawColumnSummary = rawColumnSummaries[CURRENT_COLUMN];
-                            page.Columns[CURRENT_COLUMN].CellsSummary = rawColumnSummary.DisplayValue;
+                            for (int column = 0; column < page.Columns.Length; column++)
+                            {
+                                Api.ColumnSummary rawColumnSummary = rawColumnSummaries[column];
+                                page.Columns[column].CellsSummary = rawColumnSummary.DisplayValue;
+                            }
                         }
                     }
 
