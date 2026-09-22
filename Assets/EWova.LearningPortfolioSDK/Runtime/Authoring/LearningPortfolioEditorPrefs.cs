@@ -1,4 +1,7 @@
 #if UNITY_EDITOR
+using System;
+using System.Globalization;
+
 using UnityEditor;
 
 namespace EWova.Authoring
@@ -31,27 +34,62 @@ namespace EWova.Authoring
         }
 
         #region DisableForceLogin
-        private const string DisableForceLoginMenuPath = "EWova/Editor/Learning Portfolio/Disable Force Login";
+        private const string ForceLoginDisableMenuPath = "EWova/Editor/Learning Portfolio/Force Login/Disable";
+        private const string ForceLoginEnableMenuPath = "EWova/Editor/Learning Portfolio/Force Login/Enable";
         private const string DisableForceLoginPrefKey = "LP_EditorDisableForceLogin";
-        [MenuItem(DisableForceLoginMenuPath, false, 1)]
-        private static void ToggleForceLogin()
+        [MenuItem(ForceLoginDisableMenuPath, false, 1)]
+        private static void DisableForceLoginMenuItem()
         {
-            DisableForceLogin = !DisableForceLogin;
+            DisableForceLogin = true;
+            EditorLogger.Info("關閉強制登入，若瀏覽器驗證過，則在瀏覽器驗證時將跳過強制登入的步驟，但在某些情況下可能會要求使用者重新登入以確保安全性。");
+        }
+        [MenuItem(ForceLoginDisableMenuPath, true)]
+        private static bool DisableForceLoginMenuItemValidate()
+        {
+            Menu.SetChecked(ForceLoginDisableMenuPath, DisableForceLogin);
+            return true;
+        }
+        [MenuItem(ForceLoginEnableMenuPath, false, 2)]
+        private static void EnableForceLoginMenuItem()
+        {
+            DisableForceLogin = false;
+            EditorLogger.Info("恢復強制登入，瀏覽器跳轉驗證時將強制要求使用者登入。");
+        }
+        [MenuItem(ForceLoginEnableMenuPath, true)]
+        private static bool EnableForceLoginMenuItemValidate()
+        {
+            Menu.SetChecked(ForceLoginEnableMenuPath, !DisableForceLogin);
+            return true;
+        }
+        #endregion
 
-            if (DisableForceLogin)
+        #region VersionCheckCache
+        private const string LastVersionCheckTicksKey = "LP_EditorLastVersionCheckTicks";
+        private const string CachedLatestVersionKey = "LP_EditorCachedLatestVersion";
+
+        /// <summary>
+        /// 上次向 GitHub 檢查最新版本的時間 (UTC)。
+        /// </summary>
+        public static DateTime LastVersionCheckUtc
+        {
+            get
             {
-                EditorLogger.Info("關閉強制登入，若瀏覽器驗證過，則在瀏覽器驗證時將跳過強制登入的步驟，但在某些情況下可能會要求使用者重新登入以確保安全性。");
+                string raw = EWovaEditorPrefs.GetString(LastVersionCheckTicksKey, "0");
+                return long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out long ticks) ? new DateTime(ticks, DateTimeKind.Utc) : DateTime.MinValue;
             }
-            else
+            set
             {
-                EditorLogger.Info("恢復強制登入，瀏覽器跳轉驗證時將強制要求使用者登入。");
+                EWovaEditorPrefs.SetString(LastVersionCheckTicksKey, value.Ticks.ToString(CultureInfo.InvariantCulture));
             }
         }
-        [MenuItem(DisableForceLoginMenuPath, true)]
-        private static bool ToggleForceLoginValidate()
+
+        /// <summary>
+        /// 快取的最新版本號（從 GitHub 上取得）。
+        /// </summary>
+        public static string CachedLatestVersion
         {
-            Menu.SetChecked(DisableForceLoginMenuPath, DisableForceLogin);
-            return true;
+            get => EWovaEditorPrefs.GetString(CachedLatestVersionKey, string.Empty);
+            set => EWovaEditorPrefs.SetString(CachedLatestVersionKey, value);
         }
         #endregion
     }
