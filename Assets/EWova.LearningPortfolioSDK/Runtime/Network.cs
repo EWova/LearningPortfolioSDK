@@ -1,384 +1,473 @@
+using Cysharp.Threading.Tasks;
+
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 using UnityEngine;
 
-using EWova.NetService.Model;
-using Cysharp.Threading.Tasks;
-
 namespace EWova.LearningPortfolio
 {
-    [Serializable]
-    public class NetServiceRequestHandler
+    public sealed class NetServiceRequestHandler : IDisposable
     {
-        private readonly object _lock = new();
-        private readonly Queue<Func<UniTask>> m_queue = new();
-        [SerializeField] private bool m_processing = false;
-        [SerializeField] private int m_pendingCount = 0;
-
-        public bool IsAnyNetSerivceRequesting => m_processing;
-
-        internal void Queue(Func<UniTask> request)
+        private readonly struct WorkItem
         {
-            bool startProcessing = false;
+            public readonly Func<CancellationToken, UniTask> Run;
+            public readonly Action Cancel;
 
-            lock (_lock)
+            public WorkItem(Func<CancellationToken, UniTask> run, Action cancel)
             {
-                m_queue.Enqueue(request);
-                m_pendingCount = m_queue.Count;
-                if (!m_processing)
-                {
-                    m_processing = true;
-                    startProcessing = true;
-                }
+                Run = run;
+                Cancel = cancel;
             }
+        }
 
-            if (startProcessing)
+        private readonly Queue<WorkItem> m_queue = new();
+        private bool m_processing;
+        private CancellationTokenSource m_cts = new();
+
+        public int PendingCount => m_queue.Count;
+        public bool IsAnyNetServiceRequesting => m_processing;
+
+        internal UniTask<T> EnqueueAsync<T>(Func<CancellationToken, UniTask<T>> run, CancellationToken externalToken)
+        {
+            var tcs = new UniTaskCompletionSource<T>();
+
+            void CancelTcs() => tcs.TrySetCanceled(externalToken);
+
+            Enqueue(async handlerToken =>
             {
+                try
+                {
+                    using var linked = CancellationTokenSource.CreateLinkedTokenSource(handlerToken, externalToken);
+                    var result = await run(linked.Token);
+                    tcs.TrySetResult(result);
+                }
+                catch (OperationCanceledException)
+                {
+                    CancelTcs();
+                }
+                catch (Exception ex)
+                {
+                    tcs.TrySetException(ex);
+                }
+            }, onCanceled: CancelTcs);
+
+            return tcs.Task;
+        }
+
+        private void Enqueue(Func<CancellationToken, UniTask> run, Action onCanceled)
+        {
+            m_queue.Enqueue(new WorkItem(run, onCanceled));
+            if (!m_processing)
+            {
+                m_processing = true;
                 _ = ProcessAsync();
             }
         }
 
         private async UniTaskVoid ProcessAsync()
         {
-            while (true)
+            while (m_queue.Count > 0)
             {
-                Func<UniTask> req = null;
-                lock (_lock)
+                if (m_cts.IsCancellationRequested)
                 {
-                    if (m_queue.Count == 0)
-                    {
-                        m_processing = false;
-                        m_pendingCount = 0;
-                        return;
-                    }
-                    req = m_queue.Dequeue();
-                    m_pendingCount = m_queue.Count;
+                    DrainWithCancel();
+                    return;
                 }
 
-                // 這裡直接呼叫 delegate
-                await req();
+                var item = m_queue.Dequeue();
+                await item.Run(m_cts.Token);
             }
+
+            m_processing = false;
+        }
+
+        /// <summary>
+        /// 取消所有排隊中與執行中的請求。
+        /// </summary>
+        public void CancelAll()
+        {
+            var old = m_cts;
+            m_cts = new CancellationTokenSource();
+            old.Cancel();
+            old.Dispose();
+
+            if (!m_processing)
+                DrainWithCancel();
+        }
+
+        private void DrainWithCancel()
+        {
+            while (m_queue.Count > 0)
+            {
+                var item = m_queue.Dequeue();
+                try { item.Cancel(); }
+                catch (Exception ex) { Debug.LogException(ex); }
+            }
+            m_processing = false;
+        }
+
+        /// <summary>
+        /// 取消所有請求並釋放資源。
+        /// </summary>
+        public void Dispose()
+        {
+            m_cts.Cancel();
+            m_cts.Dispose();
+            DrainWithCancel();
         }
     }
+
+    public enum AsyncRespondStatus { Success, Failed }
+
     public readonly struct NetServiceAsyncRespond
     {
-        public string ErrorMessage { get; }
-        public Exception Exception { get; }
-        public bool IsSuccess => Status == StatusType.Success;
-        public bool IsFailed => Status == StatusType.Failed;
-        public bool IsException => Status == StatusType.Exception;
-        private StatusType Status { get; }
-        private enum StatusType
+        public readonly AsyncRespondStatus Status;
+        public readonly LearningPortfolioApiException LearningPortfolioApiException;
+        public string ErrorMessage => LearningPortfolioApiException?.Message ?? string.Empty;
+        public bool IsSuccess => Status == AsyncRespondStatus.Success;
+        public bool IsFailed => Status == AsyncRespondStatus.Failed;
+
+        internal NetServiceAsyncRespond(AsyncRespondStatus status, LearningPortfolioApiException ex)
         {
-            Success,
-            Failed,
-            Exception
-        }
-        private NetServiceAsyncRespond(string errorMessage, Exception exception, StatusType status)
-        {
-            ErrorMessage = errorMessage;
-            Exception = exception;
             Status = status;
+            LearningPortfolioApiException = ex;
         }
 
-        public static NetServiceAsyncRespond ResultSuccess()
-            => new NetServiceAsyncRespond(null, null, StatusType.Success);
-
-        public static NetServiceAsyncRespond ResultFailed(string errorMessage, ErrorHandleException handleEx)
-            => new NetServiceAsyncRespond(errorMessage, handleEx, StatusType.Failed);
-
-        public static NetServiceAsyncRespond ResultException(Exception ex)
-            => new NetServiceAsyncRespond(null, ex, StatusType.Exception);
+        /// <summary>
+        /// 建立成功結果。
+        /// </summary>
+        public static NetServiceAsyncRespond ResultSuccess() => new(AsyncRespondStatus.Success, null);
+        /// <summary>
+        /// 建立失敗結果。
+        /// </summary>
+        /// <param name="ex">失敗原因。</param>
+        public static NetServiceAsyncRespond ResultFailed(LearningPortfolioApiException ex) => new(AsyncRespondStatus.Failed, ex);
     }
+
     public readonly struct NetServiceAsyncRespond<T>
     {
-        public T Data { get; }
-        public string ErrorMessage { get; }
-        public Exception Exception { get; }
+        public readonly T Data;
+        public readonly AsyncRespondStatus Status;
+        public readonly LearningPortfolioApiException LearningPortfolioApiException;
+        public string ErrorMessage => LearningPortfolioApiException?.Message ?? string.Empty;
+        public bool IsSuccess => Status == AsyncRespondStatus.Success;
+        public bool IsFailed => Status == AsyncRespondStatus.Failed;
 
-        public bool IsSuccess => Status == StatusType.Success;
-        public bool IsFailed => Status == StatusType.Failed;
-        public bool IsException => Status == StatusType.Exception;
-
-        private StatusType Status { get; }
-
-        private enum StatusType
-        {
-            Success,
-            Failed,
-            Exception
-        }
-
-        private NetServiceAsyncRespond(T data, string errorMessage, Exception exception, StatusType status)
+        internal NetServiceAsyncRespond(T data, AsyncRespondStatus status, LearningPortfolioApiException ex)
         {
             Data = data;
-            ErrorMessage = errorMessage;
-            Exception = exception;
             Status = status;
+            LearningPortfolioApiException = ex;
         }
 
-        public static NetServiceAsyncRespond<T> ResultSuccess(T data)
-            => new NetServiceAsyncRespond<T>(data, null, null, StatusType.Success);
-
-        public static NetServiceAsyncRespond<T> ResultFailed(string errorMessage, ErrorHandleException handleEx)
-            => new NetServiceAsyncRespond<T>(default, errorMessage, handleEx, StatusType.Failed);
-
-        public static NetServiceAsyncRespond<T> ResultException(Exception ex)
-            => new NetServiceAsyncRespond<T>(default, null, ex, StatusType.Exception);
+        /// <summary>
+        /// 建立成功結果。
+        /// </summary>
+        /// <param name="data">回應資料。</param>
+        public static NetServiceAsyncRespond<T> ResultSuccess(T data) => new(data, AsyncRespondStatus.Success, null);
+        /// <summary>
+        /// 建立失敗結果。
+        /// </summary>
+        /// <param name="ex">失敗原因。</param>
+        public static NetServiceAsyncRespond<T> ResultFailed(LearningPortfolioApiException ex) => new(default, AsyncRespondStatus.Failed, ex);
     }
 
-    public abstract class NetSerivceBase
+    public abstract class NetServiceBase
     {
-        public NetSerivceBase(NetServiceRequestHandler requestHandler)
+        protected NetServiceBase(NetServiceRequestHandler requestHandler)
         {
             RequestHandler = requestHandler ?? throw new ArgumentNullException(nameof(requestHandler));
         }
-        internal NetServiceRequestHandler RequestHandler;
+        internal readonly NetServiceRequestHandler RequestHandler;
     }
-    public class NetSerivceVoid : NetSerivceBase
-    {
-        internal readonly Func<UniTask> m_func;
-        internal readonly Func<UniTask> m_respondFunc;
 
-        public NetSerivceVoid(NetServiceRequestHandler requestHandler, Func<UniTask> func, Func<UniTask> respondFunc = null)
+    public class NetServiceCommand<TRequest> : NetServiceBase
+    {
+        private readonly Func<TRequest, CancellationToken, UniTask> m_func;
+        private readonly Func<TRequest, CancellationToken, UniTask> m_onDone;
+
+        /// <summary>
+        /// 建立一個無回應資料的網路服務指令。
+        /// </summary>
+        /// <param name="requestHandler">請求處理器。</param>
+        /// <param name="func">實際發送請求的邏輯。</param>
+        /// <param name="onRespond">成功後的額外處理（選填）。</param>
+        public NetServiceCommand(
+            NetServiceRequestHandler requestHandler,
+            Func<TRequest, CancellationToken, UniTask> func,
+            Func<TRequest, CancellationToken, UniTask> onRespond = null)
             : base(requestHandler)
         {
             m_func = func ?? throw new ArgumentNullException(nameof(func));
-            m_respondFunc = respondFunc;
+            m_onDone = onRespond;
         }
 
-        private async UniTask<NetServiceAsyncRespond> RunAsync()
+        private async UniTask<NetServiceAsyncRespond> RunAsync(
+            TRequest request,
+            CancellationToken ct)
         {
             try
             {
-                await m_func();
+                await m_func(request, ct);
 
-                if (m_respondFunc != null)
-                    await m_respondFunc();
+                if (m_onDone != null)
+                    await m_onDone(request, ct);
 
                 return NetServiceAsyncRespond.ResultSuccess();
             }
-            catch (ErrorHandleException ex)
+            catch (LearningPortfolioApiException ex)
             {
-                return NetServiceAsyncRespond.ResultFailed(ex.ErrorMessage, ex);
-            }
-            catch (Exception ex)
-            {
-                return NetServiceAsyncRespond.ResultException(ex);
+                return NetServiceAsyncRespond.ResultFailed(ex);
             }
         }
 
-        public UniTask<NetServiceAsyncRespond> RequestAsync()
-        {
-            var tcs = new UniTaskCompletionSource<NetServiceAsyncRespond>();
-            RequestHandler.Queue(async () =>
-            {
-                var result = await RunAsync();
-                tcs.TrySetResult(result);
-            });
-            return tcs.Task;
-        }
+        /// <summary>
+        /// 以非同步方式送出請求。
+        /// </summary>
+        /// <param name="request">請求內容。</param>
+        /// <param name="cancellationToken">取消權杖。</param>
+        public UniTask<NetServiceAsyncRespond> RequestAsync(
+            TRequest request,
+            CancellationToken cancellationToken = default)
+            => RequestHandler.EnqueueAsync(token => RunAsync(request, token), cancellationToken);
 
+        /// <summary>
+        /// 以 Callback 方式送出請求。
+        /// </summary>
+        /// <param name="request">請求內容。</param>
+        /// <param name="onSuccess">成功時的回呼。</param>
+        /// <param name="onFailure">失敗時的回呼，附帶錯誤訊息。</param>
+        /// <param name="onException">
+        /// 非預期例外的回呼。API 錯誤與請求取消（<see cref="OperationCanceledException"/>）都會由
+        /// <paramref name="onFailure"/> 回報，不會進到這裡；若持續收到 onException，通常代表問題並非出在呼叫端，
+        /// 可聯絡 EWova 官方支援協助排查。
+        /// </param>
+        /// <param name="cancellationToken">取消權杖。</param>
         public void Request(
+            TRequest request,
             Action onSuccess,
             Action<string> onFailure,
-            Action<Exception> onException = null)
+            Action<Exception> onException = null,
+            CancellationToken cancellationToken = default)
         {
-            RequestHandler.Queue(async () =>
-            {
-                var result = await RunAsync();
-
-                if (result.IsSuccess)
-                    onSuccess?.Invoke();
-                else if (result.IsFailed)
-                    onFailure?.Invoke(result.ErrorMessage);
-                else if (result.IsException)
-                    onException?.Invoke(result.Exception);
-            });
+            RequestAsync(request, cancellationToken)
+                .ContinueWith(result =>
+                {
+                    if (result.IsSuccess)
+                        onSuccess?.Invoke();
+                    else
+                        onFailure?.Invoke(result.ErrorMessage);
+                })
+                .Forget(ex =>
+                {
+                    if (ex is OperationCanceledException)
+                        onFailure?.Invoke("Request was canceled.");
+                    else
+                        onException?.Invoke(ex);
+                });
         }
     }
-    public class NetSerivceRequest<TRequest> : NetSerivceBase
+
+    public class NetService<TRequest, TRespond> : NetServiceBase
     {
-        public NetSerivceRequest(NetServiceRequestHandler requestHandler, Func<TRequest, UniTask> func, Func<TRequest, UniTask> newValueFunc) : base(requestHandler)
+        private readonly Func<TRequest, CancellationToken, UniTask<TRespond>> m_func;
+        private readonly Func<(TRequest Request, TRespond Respond), CancellationToken, UniTask> m_onRespond;
+
+        /// <summary>
+        /// 建立一個有回應資料的網路服務。
+        /// </summary>
+        /// <param name="requestHandler">請求處理器。</param>
+        /// <param name="func">實際發送請求並取得回應資料的邏輯。</param>
+        /// <param name="onRespond">成功後的額外處理（選填）。</param>
+        public NetService(
+            NetServiceRequestHandler requestHandler,
+            Func<TRequest, CancellationToken, UniTask<TRespond>> func,
+            Func<(TRequest Request, TRespond Respond), CancellationToken, UniTask> onRespond = null)
+            : base(requestHandler)
         {
             m_func = func ?? throw new ArgumentNullException(nameof(func));
-            m_newValueFunc = newValueFunc;
+            m_onRespond = onRespond;
         }
-        internal readonly Func<TRequest, UniTask> m_func;
-        internal readonly Func<TRequest, UniTask> m_newValueFunc;
 
-        private async UniTask<NetServiceAsyncRespond> RunAsync(TRequest value)
+        private async UniTask<NetServiceAsyncRespond<TRespond>> RunAsync(
+            TRequest request, 
+            CancellationToken ct)
         {
             try
             {
-                await m_func(value);
+                var respond = await m_func(request, ct);
 
-                if (m_newValueFunc != null)
-                    await m_newValueFunc(value);
-
-                return NetServiceAsyncRespond.ResultSuccess();
-            }
-            catch (ErrorHandleException ex)
-            {
-                return NetServiceAsyncRespond.ResultFailed(ex.ErrorMessage, ex);
-            }
-            catch (Exception ex)
-            {
-                return NetServiceAsyncRespond.ResultException(ex);
-            }
-        }
-
-        public UniTask<NetServiceAsyncRespond> RequestAsync(TRequest value)
-        {
-            var tcs = new UniTaskCompletionSource<NetServiceAsyncRespond>();
-            RequestHandler.Queue(async () =>
-            {
-                var result = await RunAsync(value);
-                tcs.TrySetResult(result);
-            });
-            return tcs.Task;
-        }
-
-        public void Request(
-            TRequest value,
-            Action onSuccess,
-            Action<string> onFailure,
-            Action<Exception> onException = null)
-        {
-            RequestHandler.Queue(async () =>
-            {
-                var result = await RunAsync(value);
-
-                if (result.IsSuccess)
-                    onSuccess?.Invoke();
-                else if (result.IsFailed)
-                    onFailure?.Invoke(result.ErrorMessage);
-                else if (result.IsException)
-                    onException?.Invoke(result.Exception);
-            });
-        }
-
-    }
-    public class NetSerivceRespond<TRespond> : NetSerivceBase
-    {
-        public NetSerivceRespond(NetServiceRequestHandler requestHandler, Func<UniTask<TRespond>> func, Func<TRespond, UniTask> respondFunc) : base(requestHandler)
-        {
-            m_func = func ?? throw new ArgumentNullException(nameof(func));
-            m_respondFunc = respondFunc;
-        }
-        internal readonly Func<UniTask<TRespond>> m_func;
-        internal readonly Func<TRespond, UniTask> m_respondFunc;
-
-        private async UniTask<NetServiceAsyncRespond<TRespond>> RunAsync()
-        {
-            try
-            {
-                TRespond respond = await m_func();
-
-                if (m_respondFunc != null)
-                    await m_respondFunc(respond);
+                if (m_onRespond != null)
+                    await m_onRespond((request, respond), ct);
 
                 return NetServiceAsyncRespond<TRespond>.ResultSuccess(respond);
             }
-            catch (ErrorHandleException ex)
+            catch (LearningPortfolioApiException ex)
             {
-                return NetServiceAsyncRespond<TRespond>.ResultFailed(ex.ErrorMessage, ex);
-            }
-            catch (Exception ex)
-            {
-                return NetServiceAsyncRespond<TRespond>.ResultException(ex);
+                return NetServiceAsyncRespond<TRespond>.ResultFailed(ex);
             }
         }
 
-        public UniTask<NetServiceAsyncRespond<TRespond>> RequestAsync()
-        {
-            var tcs = new UniTaskCompletionSource<NetServiceAsyncRespond<TRespond>>();
-            RequestHandler.Queue(async () =>
-            {
-                var result = await RunAsync();
-                tcs.TrySetResult(result);
-            });
-            return tcs.Task;
-        }
+        /// <summary>
+        /// 以非同步方式送出請求。
+        /// </summary>
+        /// <param name="request">請求內容。</param>
+        /// <param name="cancellationToken">取消權杖。</param>
+        public UniTask<NetServiceAsyncRespond<TRespond>> RequestAsync(
+            TRequest request,
+            CancellationToken cancellationToken = default)
+            => RequestHandler.EnqueueAsync(token => RunAsync(request, token), cancellationToken);
 
+        /// <summary>
+        /// 以 Callback 方式送出請求。
+        /// </summary>
+        /// <param name="request">請求內容。</param>
+        /// <param name="onSuccess">成功時的回呼，附帶回應資料。</param>
+        /// <param name="onFailure">失敗時的回呼，附帶錯誤訊息。</param>
+        /// <param name="onException">
+        /// 非預期例外的回呼。API 錯誤與請求取消（<see cref="OperationCanceledException"/>）都會由
+        /// <paramref name="onFailure"/> 回報，不會進到這裡；若持續收到 onException，通常代表問題並非出在呼叫端，
+        /// 可聯絡 EWova 官方支援協助排查。
+        /// </param>
+        /// <param name="cancellationToken">取消權杖。</param>
         public void Request(
+            TRequest request,
             Action<TRespond> onSuccess,
             Action<string> onFailure,
-            Action<Exception> onException = null)
+            Action<Exception> onException = null,
+            CancellationToken cancellationToken = default)
         {
-            RequestHandler.Queue(async () =>
-            {
-                var result = await RunAsync();
-
-                if (result.IsSuccess)
-                    onSuccess?.Invoke(result.Data);
-                else if (result.IsFailed)
-                    onFailure?.Invoke(result.ErrorMessage);
-                else if (result.IsException)
-                    onException?.Invoke(result.Exception);
-            });
+            RequestAsync(request, cancellationToken)
+                .ContinueWith(result =>
+                {
+                    if (result.IsSuccess)
+                        onSuccess?.Invoke(result.Data);
+                    else
+                        onFailure?.Invoke(result.ErrorMessage);
+                })
+                .Forget(ex =>
+                {
+                    if (ex is OperationCanceledException)
+                        onFailure?.Invoke("Request was canceled.");
+                    else
+                        onException?.Invoke(ex);
+                });
         }
-
     }
-    public class NetSerivceRequestRespond<TRequest, TRespond> : NetSerivceBase
+
+    public sealed class NetServiceVoid : NetServiceCommand<AsyncUnit>
     {
-        public NetSerivceRequestRespond(NetServiceRequestHandler requestHandler, Func<TRequest, UniTask<TRespond>> func, Func<(TRequest request, TRespond respond), UniTask> respondAndNewValueFunc) : base(requestHandler)
+        /// <summary>
+        /// 建立一個無請求內容、無回應資料的網路服務指令。
+        /// </summary>
+        /// <param name="handler">請求處理器。</param>
+        /// <param name="func">實際發送請求的邏輯。</param>
+        /// <param name="onRespond">成功後的額外處理（選填）。</param>
+        public NetServiceVoid(NetServiceRequestHandler handler, Func<CancellationToken, UniTask> func, Func<CancellationToken, UniTask> onRespond = null)
+            : base(handler,
+                (_, ct) => func(ct),
+                onRespond == null ? null : (_, ct) => onRespond(ct))
         {
-            m_func = func ?? throw new ArgumentNullException(nameof(func));
-            m_respondAndNewValueFunc = respondAndNewValueFunc;
-        }
-        internal readonly Func<TRequest, UniTask<TRespond>> m_func;
-        internal readonly Func<(TRequest request, TRespond respond), UniTask> m_respondAndNewValueFunc;
-        private async UniTask<NetServiceAsyncRespond<TRespond>> RunAsync(TRequest value)
-        {
-            try
-            {
-                TRespond respond = await m_func(value);
-
-                if (m_respondAndNewValueFunc != null)
-                    await m_respondAndNewValueFunc((value, respond));
-
-                return NetServiceAsyncRespond<TRespond>.ResultSuccess(respond);
-            }
-            catch (ErrorHandleException ex)
-            {
-                return NetServiceAsyncRespond<TRespond>.ResultFailed(ex.ErrorMessage, ex);
-            }
-            catch (Exception ex)
-            {
-                return NetServiceAsyncRespond<TRespond>.ResultException(ex);
-            }
         }
 
-        public UniTask<NetServiceAsyncRespond<TRespond>> RequestAsync(TRequest value)
-        {
-            var tcs = new UniTaskCompletionSource<NetServiceAsyncRespond<TRespond>>();
-            RequestHandler.Queue(async () =>
-            {
-                var result = await RunAsync(value);
-                tcs.TrySetResult(result);
-            });
-            return tcs.Task;
-        }
+        /// <summary>
+        /// 以非同步方式送出請求。
+        /// </summary>
+        /// <param name="ct">取消權杖。</param>
+        public UniTask<NetServiceAsyncRespond> RequestAsync(
+            CancellationToken ct = default)
+            => base.RequestAsync(AsyncUnit.Default, ct);
 
+        /// <summary>
+        /// 以 Callback 方式送出請求。
+        /// </summary>
+        /// <param name="onSuccess">成功時的回呼。</param>
+        /// <param name="onFailure">失敗時的回呼，附帶錯誤訊息。</param>
+        /// <param name="onException">
+        /// 非預期例外的回呼。API 錯誤與請求取消（<see cref="OperationCanceledException"/>）都會由
+        /// <paramref name="onFailure"/> 回報，不會進到這裡；若持續收到 onException，通常代表問題並非出在呼叫端，
+        /// 可聯絡 EWova 官方支援協助排查。
+        /// </param>
+        /// <param name="ct">取消權杖。</param>
         public void Request(
-            TRequest value,
+            Action onSuccess,
+            Action<string> onFailure,
+            Action<Exception> onException = null,
+            CancellationToken ct = default)
+            => base.Request(AsyncUnit.Default, onSuccess, onFailure, onException, ct);
+    }
+
+    public sealed class NetServiceRequest<TRequest> : NetServiceCommand<TRequest>
+    {
+        /// <summary>
+        /// 建立一個有請求內容、無回應資料的網路服務指令。
+        /// </summary>
+        /// <param name="handler">請求處理器。</param>
+        /// <param name="func">實際發送請求的邏輯。</param>
+        /// <param name="onRespond">成功後的額外處理（選填）。</param>
+        public NetServiceRequest(NetServiceRequestHandler handler, Func<TRequest, CancellationToken, UniTask> func, Func<TRequest, CancellationToken, UniTask> onRespond = null)
+            : base(handler, func, onRespond)
+        {
+        }
+    }
+
+    public sealed class NetServiceRespond<TRespond> : NetService<AsyncUnit, TRespond>
+    {
+        /// <summary>
+        /// 建立一個無請求內容、有回應資料的網路服務。
+        /// </summary>
+        /// <param name="handler">請求處理器。</param>
+        /// <param name="func">實際發送請求並取得回應資料的邏輯。</param>
+        /// <param name="onRespond">成功後的額外處理（選填）。</param>
+        public NetServiceRespond(NetServiceRequestHandler handler, Func<CancellationToken, UniTask<TRespond>> func, Func<TRespond, CancellationToken, UniTask> onRespond = null)
+            : base(handler,
+                (_, ct) => func(ct),
+                onRespond == null ? null : (t, ct) => onRespond(t.Respond, ct))
+        {
+        }
+
+        /// <summary>
+        /// 以非同步方式送出請求。
+        /// </summary>
+        /// <param name="ct">取消權杖。</param>
+        public UniTask<NetServiceAsyncRespond<TRespond>> RequestAsync(CancellationToken ct = default)
+            => base.RequestAsync(AsyncUnit.Default, ct);
+
+        /// <summary>
+        /// 以 Callback 方式送出請求。
+        /// </summary>
+        /// <param name="onSuccess">成功時的回呼，附帶回應資料。</param>
+        /// <param name="onFailure">失敗時的回呼，附帶錯誤訊息。</param>
+        /// <param name="onException">
+        /// 非預期例外的回呼。API 錯誤與請求取消（<see cref="OperationCanceledException"/>）都會由
+        /// <paramref name="onFailure"/> 回報，不會進到這裡；若持續收到 onException，通常代表問題並非出在呼叫端，
+        /// 可聯絡 EWova 官方支援協助排查。
+        /// </param>
+        /// <param name="ct">取消權杖。</param>
+        public void Request(
             Action<TRespond> onSuccess,
             Action<string> onFailure,
-            Action<Exception> onException = null)
-        {
-            RequestHandler.Queue(async () =>
-            {
-                var result = await RunAsync(value);
+            Action<Exception> onException = null,
+            CancellationToken ct = default)
+            => base.Request(AsyncUnit.Default, onSuccess, onFailure, onException, ct);
+    }
 
-                if (result.IsSuccess)
-                    onSuccess?.Invoke(result.Data);
-                else if (result.IsFailed)
-                    onFailure?.Invoke(result.ErrorMessage);
-                else if (result.IsException)
-                    onException?.Invoke(result.Exception);
-            });
+    public sealed class NetServiceRequestRespond<TRequest, TRespond> : NetService<TRequest, TRespond>
+    {
+        /// <summary>
+        /// 建立一個有請求內容、也有回應資料的網路服務。
+        /// </summary>
+        /// <param name="handler">請求處理器。</param>
+        /// <param name="func">實際發送請求並取得回應資料的邏輯。</param>
+        /// <param name="onRespond">成功後的額外處理（選填）。</param>
+        public NetServiceRequestRespond(
+            NetServiceRequestHandler handler,
+            Func<TRequest, CancellationToken, UniTask<TRespond>> func,
+            Func<(TRequest Request, TRespond Respond), CancellationToken, UniTask> onRespond = null)
+            : base(handler, func, onRespond)
+        {
         }
     }
 }

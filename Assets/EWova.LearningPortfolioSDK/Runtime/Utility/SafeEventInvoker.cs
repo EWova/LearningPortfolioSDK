@@ -5,7 +5,7 @@ public static class SafeEventInvoker
     public static void InvokeSafely<T>(
         this Action<T> handlers,
         T arg,
-        Action<Exception> @throw = null)
+        Action<Exception> onThrow = null)
     {
         if (handlers == null) return;
 
@@ -17,13 +17,13 @@ public static class SafeEventInvoker
             }
             catch (Exception ex)
             {
-                @throw?.Invoke(ex);
+                onThrow?.Invoke(ex);
             }
         }
     }
     public static void InvokeSafely(
     this Action handlers,
-    Action<Exception> @throw = null)
+    Action<Exception> onThrow = null)
     {
         if (handlers == null) return;
 
@@ -35,7 +35,7 @@ public static class SafeEventInvoker
             }
             catch (Exception ex)
             {
-                @throw?.Invoke(ex);
+                onThrow?.Invoke(ex);
             }
         }
     }

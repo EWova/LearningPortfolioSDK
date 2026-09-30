@@ -53,12 +53,15 @@ SpriteAtlas:
     - 21e9f506053ce984d975dbda2babb14d: 21300000
     - 113cff56c36a56c4d96538ddcabdf07e: 7482667652216324306
     - e8acd066ad73afe4594f047b06fe7673: 21300000
+    - 52ae41768bb27bd44a0f23c029f26da1: 21300000
     - f933a7867d888684db26562c7276e190: 21300000
     - 604d5eb6567ec3449ac734f93e19f747: 21300000
+    - 7033adf685883224498ec9a34059cce7: 21300000
     - c96454b732a029f4fa3100097f1958ed: 21300000
     - 22d6078809bd65a47a74fbf010711c63: 21300000
     - 8b6652994d5b8d34790360e469865691: 21300000
     - 1d3fd599c04edad4c8771434cd359cbf: 21300000
+    - 8aa3907a71743e446841f77c17898eec: 21300000
     - d1faa1aa2f331f34b8aa4a84860691e4: 21300000
     - f97378fb876bc1e4fa5bf5db0147c06a: 7482667652216324306
     - 398014bc270df514c80dfde3565895cf: 21300000
@@ -86,12 +89,15 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 21e9f506053ce984d975dbda2babb14d, type: 3}
   - {fileID: 7482667652216324306, guid: 113cff56c36a56c4d96538ddcabdf07e, type: 3}
   - {fileID: 21300000, guid: e8acd066ad73afe4594f047b06fe7673, type: 3}
+  - {fileID: 21300000, guid: 52ae41768bb27bd44a0f23c029f26da1, type: 3}
   - {fileID: 21300000, guid: f933a7867d888684db26562c7276e190, type: 3}
   - {fileID: 21300000, guid: 604d5eb6567ec3449ac734f93e19f747, type: 3}
+  - {fileID: 21300000, guid: 7033adf685883224498ec9a34059cce7, type: 3}
   - {fileID: 21300000, guid: c96454b732a029f4fa3100097f1958ed, type: 3}
   - {fileID: 21300000, guid: 22d6078809bd65a47a74fbf010711c63, type: 3}
   - {fileID: 21300000, guid: 8b6652994d5b8d34790360e469865691, type: 3}
   - {fileID: 21300000, guid: 1d3fd599c04edad4c8771434cd359cbf, type: 3}
+  - {fileID: 21300000, guid: 8aa3907a71743e446841f77c17898eec, type: 3}
   - {fileID: 21300000, guid: d1faa1aa2f331f34b8aa4a84860691e4, type: 3}
   - {fileID: 7482667652216324306, guid: f97378fb876bc1e4fa5bf5db0147c06a, type: 3}
   - {fileID: 21300000, guid: 398014bc270df514c80dfde3565895cf, type: 3}
@@ -118,12 +124,15 @@ SpriteAtlas:
   - "\u5BC6\u78BC\u986F\u793A_\u6307\u6A19"
   - Square
   - "\u5207\u63DB\u9215_\u6B63\u5E38_9"
+  - loading
   - CircleC
   - "\u5BC6\u78BC\u96B1\u85CF_\u6B63\u5E38"
+  - External
   - Circle
   - "\u8F38\u5165\u6846_Disable_9"
   - "\u767B\u5165\u8996\u7A97"
   - "\u5207\u63DB\u9215_\u9078\u4E2D_9"
+  - unprotected
   - CirclePHeight
   - Square
   - "\u8F38\u5165\u6846_\u9078\u4E2D_9"

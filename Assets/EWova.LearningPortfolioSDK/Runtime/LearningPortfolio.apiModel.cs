@@ -5,12 +5,12 @@ using System.Collections.Generic;
 using System.Linq;
 
 using UnityEngine;
-using UnityEngine.XR;
 
 namespace EWova.LearningPortfolio
 {
     public partial class LearningPortfolio
     {
+        [Obsolete("已棄用從 Client 端 Mapping 裝置類型的方式")]
         public enum UsingDeviceList : int
         {
             Auto = -2,
@@ -29,32 +29,6 @@ namespace EWova.LearningPortfolio
             AllInOne_HTC_VIVE = 6502,
             Web = 7000,
             Web_VR = 7500,
-        }
-        [Serializable]
-        public class LoginRequestData
-        {
-            [Tooltip("目前使用裝置追蹤ID，如果有其他裝置需求請到官網裝置列表查詢")]
-            [EnumInt(typeof(UsingDeviceList))]
-            public int UsingDeviceId = (int)UsingDeviceList.Auto;
-
-            public static LoginRequestData CreateDefault()
-            {
-                LoginRequestData data = new();
-                UsingDeviceList device = UsingDeviceList.Auto;
-                data.UsingDeviceId = (int)device;
-                return data;
-            }
-        }
-        private static bool IsXRRunning()
-        {
-            List<XRDisplaySubsystem> displaySubsystems = new();
-            SubsystemManager.GetSubsystems(displaySubsystems);
-            foreach (var d in displaySubsystems)
-            {
-                if (d.running)
-                    return true;
-            }
-            return false;
         }
 
         [Serializable]
@@ -78,9 +52,14 @@ namespace EWova.LearningPortfolio
         }
         public enum FieldType
         {
-            Number,
-            String,
-            Boolean,
+            Number = 0,
+            String = 1,
+            Boolean = 2,
+            Percentage = 3,
+            DurationSeconds = 4,
+            DurationMinutes = 5,
+            DurationMilliseconds = 6,
+            DateTimeOffset = 7
         }
 
         /*
@@ -99,20 +78,29 @@ namespace EWova.LearningPortfolio
         /// <summary>
         /// 使用者專案記錄表單
         /// </summary>
-        public class UserProjectRecordSheet : IDisposable
+        public partial class UserProjectRecordSheet : IDisposable
         {
+            public UserProjectRecordSheet(
+                Api.Project sourceProject,
+                NetServiceRequestHandler netServiceHandler)
+            {
+                SourceProject = sourceProject;
+                NetServiceHandler = netServiceHandler;
+            }
+
+            public readonly Api.Project SourceProject;
+            public readonly NetServiceRequestHandler NetServiceHandler;
+
             public List<UnityEngine.Object> ManagedObjects = new();
 
             private bool disposedValue;
-
-            internal NetServiceRequestHandler NetServiceHandler { get; set; }
 
             public UserData Owner { get; internal set; }
 
             /// <summary>
             /// 是否有任何網路服務正在請求寫入資料
             /// </summary>
-            public bool IsAnyNetSerivceRequesting => NetServiceHandler.IsAnyNetSerivceRequesting;
+            public bool IsAnyNetServiceRequesting => NetServiceHandler.IsAnyNetServiceRequesting;
 
             /// <summary>
             /// 使用者專案記錄表單ID
@@ -153,15 +141,23 @@ namespace EWova.LearningPortfolio
             /// </summary>
             public ProgressNode ProgressNode { get; internal set; }
             /// <summary>
-            /// 已完成的進度節點路徑清單 (格式為 "根節點/子節點1/子節點2/..." )。
-            /// 請注意，此路徑可能包含不存在的 Node ID (表示該節點已被刪除但完成紀錄仍保留)
-            /// 你也可以透過這個特性使用 <c>MarkNonNodeComplete</c> 來記錄不存在的節點作為隱藏進度紀錄
+            /// 已完成的進度節點路徑清單，格式為「根節點/子節點1/子節點2/...」。
             /// </summary>
-            public IReadOnlyList<string> ProgressCompletions { get; internal set; } = new List<string>();
-            public IReadOnlyList<DateTime> ProgressCompletionsLocalDateTime { get; internal set; } = new List<DateTime>();
-            /// <summary>
-            /// 所有進度節點的路徑對照表 (格式為 "根節點/子節點1/子節點2/..." => ProgressNode ) key: StringComparer.OrdinalIgnoreCase
-            /// </summary>
+            /// <remarks>
+            /// 路徑具有以下特性：
+            /// <list type="bullet">
+            /// <item>
+            /// <description>
+            /// 路徑不分大小寫。
+            /// </description>
+            /// </item>
+            /// <item>
+            /// <description>
+            /// 這個物件存放的路徑必定是後台存在的 Node ID
+            /// </description>
+            /// </item>
+            /// </list>
+            /// </remarks>
             public IReadOnlyDictionary<string, ProgressNode> AllProgressNodesPathMap { get; internal set; }
             /// <summary>
             /// 所有進度節點
@@ -180,15 +176,87 @@ namespace EWova.LearningPortfolio
                 progressNode = AllProgressNodesPathMap[path];
                 return true;
             }
+            /// <summary>
+            /// 判斷進度節點是否已完成 (含父子關係)
+            /// </summary>
+            public bool IsProgressNodeCompleted(ProgressNode progressNode)
+            {
+                if (progressNode == null)
+                    return false;
+                return progressNode.IsCompleted;
+            }
+            /// <summary>
+            /// 判斷進度節點是否已被完成標記 (不含父子關係)
+            /// </summary>
+            public bool IsProgressNodeMarked(ProgressNode progressNode)
+            {
+                if (progressNode == null)
+                    return false;
+                return progressNode.IsMarked;
+            }
 
+            /// <summary>
+            /// 已完成的進度節點路徑清單，格式為「根節點/子節點1/子節點2/...」。
+            /// 請注意，Key 會包含不存在的 <c>ProgressNode</c>，這表示該節點沒有對應的後台紀錄，但仍然保留字串形式的 Key
+            /// </summary>
+            /// <remarks>
+            /// 路徑具有以下特性：
+            /// <list type="bullet">
+            /// <item>
+            /// <description>
+            /// 路徑不分大小寫。
+            /// </description>
+            /// </item>
+            /// <item>
+            /// <description>
+            /// 路徑可能包含不存在的 Node ID，表示該節點已被刪除，但其完成紀錄仍會保留。
+            /// </description>
+            /// </item>
+            /// <item>
+            /// <description>
+            /// 可透過 <c>MarkNonNodeComplete</c> 記錄不存在的節點，作為隱藏的進度紀錄。
+            /// </description>
+            /// </item>
+            /// <item>
+            /// <description>
+            /// 字典的 Value 為本地時間。
+            /// </description>
+            /// </item>
+            /// </list>
+            /// </remarks>
+            /// <value>
+            /// Key 為已完成節點的路徑；Value 為該路徑的完成時間。
+            /// </value>
+            public IReadOnlyDictionary<string, DateTime> AllMarkedProgressDic { get; internal set; }
+                = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
             /// <summary>
             /// [網路服務請求] 標記某路徑為已完成 (節點可能不存在，但允許標記完成。可能用於隱藏進度紀錄)
             /// </summary>
-            public NetSerivceRequest<string> SetCompleteIncludeNonNode { get; internal set; }
+            public NetServiceRequest<string> SetProgressMark { get; internal set; }
             /// <summary>
             /// [網路服務請求] 取消某路徑已完成標記 (節點可能不存在，但允許標記完成。可能用於隱藏進度紀錄)
             /// </summary>
-            public NetSerivceRequest<string> SetUnmarkIncludeNonNode { get; internal set; }
+            public NetServiceRequest<string> SetProgressUnmark { get; internal set; }
+            /// <summary>
+            /// 判斷進度是否已完成 (含父子關係)
+            /// </summary>
+            public bool IsProgressCompleted(string path)
+            {
+                if (string.IsNullOrEmpty(path))
+                    return false;
+                if (!FindProgressNodeByPath(path, out var progressNode))
+                    return false;
+                return progressNode.IsCompleted;
+            }
+            /// <summary>
+            /// 判斷進度是否已被完成標記 (不含父子關係)
+            /// </summary>
+            public bool IsProgressMarked(string path)
+            {
+                if (string.IsNullOrEmpty(path))
+                    return false;
+                return AllMarkedProgressDic.ContainsKey(path);
+            }
 
             protected virtual void Dispose(bool disposing)
             {
@@ -208,11 +276,12 @@ namespace EWova.LearningPortfolio
             }
             public void Dispose()
             {
+                NetServiceHandler?.CancelAll();
                 Dispose(disposing: true);
                 GC.SuppressFinalize(this);
             }
         }
-        public class ProgressNode
+        public partial class ProgressNode
         {
             /// <summary>
             /// 所屬的使用者專案記錄表單
@@ -265,46 +334,36 @@ namespace EWova.LearningPortfolio
             /// </summary>
             public bool IsHidden { get; internal set; }
 
-
             /// <summary>
             /// 節點路徑 (用於標記完成度，格式為 "根節點/子節點1/子節點2/..." )
             /// </summary>
             public string Path { get; internal set; }
             /// <summary>
-            /// [網路服務請求] 標記該節點為已完成
+            /// [網路服務請求] 設定該節點完成標記
             /// </summary>
-            public NetSerivceVoid SetComplete { get; internal set; }
+            public NetServiceVoid SetMark { get; internal set; }
             /// <summary>
-            /// [網路服務請求] 取消標記該節點已完成
+            /// [網路服務請求] 取消設定該節點完成標記
             /// </summary>
-            public NetSerivceVoid SetUnmark { get; internal set; }
+            public NetServiceVoid SetUnmark { get; internal set; }
             /// <summary>
-            /// 是否已完成 (自己、子節點或父節點其中之一已完成即為完成)
+            /// 是否已完成 (含父子關係)
             /// </summary>
-            public bool IsCompleted => IsCompletedSelf || IsCompletedChildren() || IsCompletedParent();
+            public bool IsCompleted => IsMarked || IsCompletedChildren() || IsCompletedParent();
             /// <summary>
-            /// 是否自己被標記為已完成
+            /// 是否已被完成標記 (不含父子關係)
             /// </summary>
-            public bool IsCompletedSelf => RootSheet.ProgressCompletions.Contains(Path, StringComparer.OrdinalIgnoreCase);
+            public bool IsMarked => RootSheet.AllMarkedProgressDic.ContainsKey(Path);
             /// <summary>
             /// 自己被標記為已完成的時間 (本地時間)
             /// </summary>
-            public DateTime? CompleteTime
-            {
-                get
-                {
-                    int index = ((List<string>)RootSheet.ProgressCompletions).IndexOf(Path);
-                    if (index < 0)
-                        return null;
-                    return RootSheet.ProgressCompletionsLocalDateTime[index];
-                }
-            }
+            public DateTime? MarkedTime => RootSheet.AllMarkedProgressDic.TryGetValue(Path, out var result) ? result : (DateTime?)null;
             /// <summary>
             /// 是否子節點被標記為已完成 (自己未完成且子節點有一個以上被標記為已完成即為完成)
             /// </summary>
             public bool IsCompletedChildren()
             {
-                if (IsCompletedSelf)
+                if (IsMarked)
                     return true;
 
                 if (Children.Length > 0 && Children.All(c => c.IsCompletedChildren()))
@@ -317,7 +376,7 @@ namespace EWova.LearningPortfolio
             /// </summary>
             public bool IsCompletedParent()
             {
-                if (IsCompletedSelf)
+                if (IsMarked)
                     return true;
 
                 if (Parent != null && Parent.IsCompletedParent())
@@ -387,20 +446,20 @@ namespace EWova.LearningPortfolio
             /// <summary>
             /// [網路服務請求] 加一資料列
             /// </summary>
-            public NetSerivceRespond<API.AddRowResponse> AddRow { get; internal set; }
+            public NetServiceRespond<Api.AddRowResponse> AddRow { get; internal set; }
             /// <summary>
             /// [網路服務請求] 加一資料列並設定內容
             /// </summary>
-            public NetSerivceRequestRespond<API.SetRowRequest, API.AddRowResponse> AddRowAndSetCells { get; internal set; }
+            public NetService<Api.SetRowRequest, Api.AddRowResponse> AddRowAndSetCells { get; internal set; }
             /// <summary>
             /// [網路服務請求] 清除所有可讀寫資料
             /// </summary>
-            public NetSerivceVoid ClearReadableData { get; internal set; }
+            public NetServiceVoid ClearReadableData { get; internal set; }
         }
         /// <summary>
         /// 使用者專案記錄表單的欄位資料
         /// </summary>
-        public class Column
+        public partial class Column
         {
             /// <summary>
             /// 欄位索引
@@ -419,7 +478,7 @@ namespace EWova.LearningPortfolio
             /// </summary>
             public bool IsReadOnly { get; internal set; }
             /// <summary>
-            /// (*可修改項目) 欄位參考資料類型
+            /// 欄位參考資料類型
             /// </summary>
             public FieldType FieldType { get; internal set; }
             /// <summary>
@@ -432,10 +491,6 @@ namespace EWova.LearningPortfolio
             /// 取得該欄垂直的所有儲存格文字
             /// </summary>
             public string[] GetCellsText() => Cells.Select(c => c.Text).ToArray();
-            /// <summary>
-            /// [網路服務請求] 修改欄位屬性設定
-            /// </summary>
-            public NetSerivceRequest<API.SetColumnRequest> Edit { get; internal set; }
             /// <summary>
             /// 儲存格彙總資訊
             /// </summary>
@@ -475,7 +530,7 @@ namespace EWova.LearningPortfolio
             /// <summary>
             /// [網路服務請求] 修改資料列內容
             /// </summary>
-            public NetSerivceRequest<API.SetRowRequest> SetCells { get; internal set; }
+            public NetServiceRequest<Api.SetRowRequest> SetCells { get; internal set; }
         }
         /// <summary>
         /// 使用者專案記錄表單的儲存格資料

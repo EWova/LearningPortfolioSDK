@@ -8,6 +8,7 @@ using UnityEngine.UI;
 
 namespace EWova.LearningPortfolio
 {
+    [RequireComponent(typeof(RectTransform))]
     public class ProjectRecordShowerGraphNode : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
     {
         [Header("Runtime")]
@@ -23,12 +24,12 @@ namespace EWova.LearningPortfolio
         public int Depth;
         public int Row;
 
-        public bool IsCompleteSelf
+        public bool IsMarked
         {
-            get => m_isCompleteSelf;
+            get => m_isMarked;
             set
             {
-                m_isCompleteSelf = value;
+                m_isMarked = value;
                 t_dirty = true;
             }
         }
@@ -70,7 +71,7 @@ namespace EWova.LearningPortfolio
             }
         }
 
-        [SerializeField] private bool m_isCompleteSelf;
+        [SerializeField] private bool m_isMarked;
         [SerializeField] private bool m_isComplete;
         [SerializeField] private string m_labelText;
         [SerializeField] private string m_subLabelText;
@@ -98,8 +99,8 @@ namespace EWova.LearningPortfolio
 
         private void Rebuild()
         {
-            CheckMark.SetActive(m_isCompleteSelf);
-            if (m_isComplete || m_isCompleteSelf)
+            CheckMark.SetActive(m_isMarked);
+            if (m_isComplete || m_isMarked)
             {
                 Image1.color = CompleteColor1;
                 Image2.color = CompleteColor2;

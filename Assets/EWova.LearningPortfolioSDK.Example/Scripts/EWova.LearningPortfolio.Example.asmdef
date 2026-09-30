@@ -1,0 +1,16 @@
+{
+    "name": "EWova.LearningPortfolio.Example",
+    "rootNamespace": "",
+    "references": [
+        "GUID:cfb63a07c41d6cd48ab74eef0354158d"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
