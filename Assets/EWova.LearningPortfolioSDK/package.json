@@ -11,7 +11,7 @@
   },
   "documentationUrl": "https://wiki.ewova.com/zh-tw/LearningPortfolio/2026/Tutorial",
   "changelogUrl": "https://github.com/EWova/LearningPortfolioSDK/blob/master/Assets/EWova.LearningPortfolioSDK/changelog.md",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE.md",
   "samples": [
     {
       "displayName": "BasicAssets",
