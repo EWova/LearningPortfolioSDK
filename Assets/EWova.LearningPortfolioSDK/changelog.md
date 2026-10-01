@@ -1,4 +1,13 @@
 # Changelog
+## [2026.10.1] - 2026-10-01
+### Added
+- `LearningPortfolioProfile` Inspector 新增「C# Scheme」區塊：API Key 驗證成功後，可依後台學習歷程樣板（頁面 / 欄位 / 進度樹）一鍵產生 `ProjectScheme.cs`，並可選擇輸出位置（需後端 `GET /api/projects/{projectId}/scheme`）
+  - 產出 `ProgressNode` + `ProgressNodeMap`、`Page`、`Level`、`OverviewRowIndex`、總覽頁與各關卡頁的 `[Column]` 資料列類別，以及 `ProjectId` / `SchemeHash` 常數
+  - 產出為 `partial class`，自訂擴充請寫在另一個檔案；重新產生時會比對 `SchemeHash`，顯示後台樣板是否已變更
+  - 覆蓋非產生器建立的既有檔案（例如手寫的 `ProjectScheme.cs`）前會先確認
+  - 欄位型別對應：`number` → `int`、`percentage` → `float`、`boolean` → `bool`、`datetime_offset` → `DateTimeOffset`、`duration_*` → `int`（秒 / 分 / 毫秒數值，與後台統計一致）、其餘 → `string`
+### Changed
+- `LearningPortfolioProfile` Inspector 修改 API Key 後，驗證狀態會重設，需重新驗證
 ## [2026.9.1] - 2026-09-11
 ### Fixed
 - 修正 `EWovaLoginPlane` 在使用者已透過 `launch_ticket`（例如冷啟動 DeepLink）完成驗證後，仍須手動再按一次登入按鈕才會繼續連線流程的問題
