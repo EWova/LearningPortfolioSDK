@@ -174,17 +174,8 @@ namespace EWova.LearningPortfolio.BasicAssets
             var currentSheet = LearningPortfolio.LoggedUserProjectRecordSheet;
             var currentPage = currentSheet.Pages[0]; // pages[0] 對應總覽頁面
 
-            switch (targetLevel)
-            {
-                case ProjectScheme.Level.第一關:
-                case ProjectScheme.Level.第二關:
-                case ProjectScheme.Level.特殊測驗:
-                    return SheetHelper.CreateFromRow<ProjectScheme.OverviewPageLevelRow>(
-                        currentPage.Rows[(int)targetLevel]);
-
-                default:
-                    throw new System.Exception($"未知的關卡: {targetLevel}");
-            }
+            return SheetHelper.CreateFromRow<ProjectScheme.OverviewPageLevelRow>(
+                currentPage.Rows[(int)targetLevel]);
         }
         /// <summary>
         /// 將指定頁面的總覽頁行資料覆寫 (若 overrideData 為 null，則清空該行資料)
