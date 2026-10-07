@@ -1,4 +1,7 @@
 # Changelog
+## [2026.10.2] - 2026-10-07
+### Changed
+- `SheetManager` / `ButtonAttribute` / `ProjectScheme` 併入 BasicAssets Sample，方便使用者直接取用範本
 ## [2026.10.1] - 2026-10-01
 ### Added
 - `LearningPortfolioProfile` Inspector 新增「C# Scheme」區塊：API Key 驗證成功後，可依後台學習歷程樣板（頁面 / 欄位 / 進度樹）一鍵產生 `ProjectScheme.cs`，並可選擇輸出位置（需後端 `GET /api/projects/{projectId}/scheme`）

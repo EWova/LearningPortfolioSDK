@@ -6,7 +6,7 @@ using UnityEngine;
 
 using UnityEditor;
 #endif
-namespace Test
+namespace EWova.LearningPortfolio.BasicAssets
 {
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
     public class ButtonAttribute : Attribute
