@@ -1,4 +1,3 @@
-using EWova.LearningPortfolio;
 using EWova.LearningPortfolio.BasicAssets;
 
 using UnityEngine;
@@ -42,8 +41,8 @@ namespace Test
         {
             var data = new ProjectScheme.OverviewPageLevelRow
             {
-                總遊玩次數 = UnityEngine.Random.Range(1, 20),
-                最佳答題成績 = UnityEngine.Random.Range(0, 100),
+                TotalPlayCount = UnityEngine.Random.Range(1, 20),
+                BestTestScore = UnityEngine.Random.Range(0, 100),
             };
             SheetManager.Instance.SetLevelRowDataFromOverviewPage(ProjectScheme.Level.第一關, data);
         }
@@ -60,10 +59,10 @@ namespace Test
         [Button("[第一關] 新增 一列並寫入資料", Space = 20f)]
         public void AddLevel1Data()
         {
-            var data = new ProjectScheme.第一關PageRow
+            var data = new ProjectScheme.Level1PageRow
             {
-                分數 = UnityEngine.Random.Range(0, 100),
-                是否完成關卡 = true,
+                Score = UnityEngine.Random.Range(0, 100),
+                IsCompletePlay = true,
             };
 
             SheetManager.Instance.AppendRowData(data, row => _level1RowIndex = row?.Index ?? -1);
@@ -77,13 +76,13 @@ namespace Test
                 Debug.LogWarning("尚未新增過第一關資料");
                 return;
             }
-            SheetManager.Instance.SetRowData<ProjectScheme.第一關PageRow>(_level1RowIndex, null);
+            SheetManager.Instance.SetRowData<ProjectScheme.Level1PageRow>(_level1RowIndex, null);
             _level1RowIndex = -1;
         }
         [Button("[第一關] 清除所有 資料")]
         public void ClearAllLevel1Data()
         {
-            SheetManager.Instance.ClearAllRowData<ProjectScheme.第一關PageRow>();
+            SheetManager.Instance.ClearAllRowData<ProjectScheme.Level1PageRow>();
         }
         #endregion
     }
