@@ -266,6 +266,7 @@ namespace EWova.LearningPortfolio.BasicAssets
         /// <summary>
         /// 將指定關卡頁面覆寫一行資料 (若 writeData 為 null，則清空該行資料)
         /// </summary>
+        /// <param name="rowIndex">列索引，從 1 開始 (第一列為 1)</param>
         public void SetRowData<T>(
             int rowIndex,
             T writeData,
@@ -273,6 +274,9 @@ namespace EWova.LearningPortfolio.BasicAssets
         {
             EnsureConnected();
             EnsureSheetNotUpdating();
+
+            if (rowIndex == 0)
+                throw new ArgumentOutOfRangeException(nameof(rowIndex), rowIndex, "列索引從 1 開始 (第一列為 1)，不是 0。");
 
             var currentSheet = LearningPortfolio.LoggedUserProjectRecordSheet;
             var targetLevel = writeData != null ? (int)writeData.Level : (int)Activator.CreateInstance<T>().Level;
@@ -306,6 +310,7 @@ namespace EWova.LearningPortfolio.BasicAssets
         /// <summary>
         /// 取得指定關卡頁面的一行資料
         /// </summary>
+        /// <param name="rowIndex">列索引，從 1 開始 (第一列為 1)</param>
         public bool TryGetRowData<T>(int rowIndex, out T result) where T : ProjectScheme.LevelRowBase
         {
             EnsureConnected();
@@ -315,9 +320,9 @@ namespace EWova.LearningPortfolio.BasicAssets
             T targetLevel = Activator.CreateInstance<T>();
             var currentPage = currentSheet.Pages[(int)targetLevel.Level];
 
-            if (rowIndex < 0 || rowIndex >= currentPage.Rows.Count)
+            if (!currentPage.Rows.ContainsKey(rowIndex))
             {
-                Debug.LogError($"無法取得 {targetLevel.Level}關卡頁面行資料，索引位置 {rowIndex} 超出範圍 (0 ~ {currentPage.Rows.Count - 1})");
+                Debug.LogError($"無法取得 {targetLevel.Level}關卡頁面行資料，索引位置 {rowIndex} 超出範圍 (1 ~ {currentPage.Rows.Count})，列索引從 1 開始");
                 result = null;
                 return false;
             }
