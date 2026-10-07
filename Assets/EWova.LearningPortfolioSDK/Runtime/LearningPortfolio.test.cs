@@ -18,9 +18,9 @@ namespace EWova.LearningPortfolio
                 FieldType.Number => random.NextDouble().ToString(),
                 FieldType.Boolean => random.Next(2) == 0 ? "true" : "false",
                 FieldType.Percentage => random.NextDouble().ToString(),
-                FieldType.DurationSeconds => random.NextDouble().ToString(),
-                FieldType.DurationMinutes => random.NextDouble().ToString(),
-                FieldType.DurationMilliseconds => random.NextDouble().ToString(),
+                FieldType.DurationSeconds => random.Next(3_600_000).ToString(),
+                FieldType.DurationMinutes => random.Next(3_600_000).ToString(),
+                FieldType.DurationMilliseconds => random.Next(3_600_000).ToString(),
                 FieldType.DateTimeOffset => DateTimeOffset.Now.ToString("o"),
                 _ => random.Next().ToString()
             };

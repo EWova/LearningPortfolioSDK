@@ -1,4 +1,9 @@
 # Changelog
+## [Unreleased]
+### Changed
+- **(Breaking)** `SheetHelper` 的 `TimeSpan` 改為統一存成毫秒數（如 90 秒 → `"90000"`），不再輸出 `"c"` 格式 `"00:01:30"`；讀取仍相容舊格式（既有資料由後端協助轉換）
+- `duration_seconds` / `duration_minutes` / `duration_ms` 欄位的儲存值統一為毫秒數，欄位型別只決定顯示單位；`ProjectRecordShower` 預設圖表依此換算顯示
+- C# Scheme 產生器的 `duration_*` 欄位改為產生 `TimeSpan`（原為 `int`）
 ## [2026.10.2] - 2026-10-07
 ### Changed
 - `SheetManager` / `ButtonAttribute` / `ProjectScheme` 併入 BasicAssets Sample，方便使用者直接取用範本

@@ -66,10 +66,14 @@ namespace EWova.LearningPortfolio
                         out var dto
                     ) ? dto : DateTimeOffset.MinValue
                 ),
-                // 四捨五入到秒 輸出 "c" 格式 "1.02:03:04" (1天2小時3分鐘4秒)
+                // 統一存成毫秒數（四捨五入到毫秒，如 90 秒 → "90000"），與後端 duration_* 欄位的純數字約定一致；
+                // 秒 / 分 / 毫秒只是欄位 FieldType 的顯示單位，不影響儲存值。
+                // 讀取時相容舊版 "c" 格式 "1.02:03:04" (1天2小時3分鐘4秒)
                 [typeof(TimeSpan)] = (
-                    o => TimeSpan.FromSeconds(Math.Round(((TimeSpan)o).TotalSeconds)).ToString("c", CultureInfo.InvariantCulture),
-                    s => TimeSpan.TryParse(s, CultureInfo.InvariantCulture, out var ts) ? ts : TimeSpan.Zero
+                    o => Math.Round(((TimeSpan)o).TotalMilliseconds).ToString("0", CultureInfo.InvariantCulture),
+                    s => double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var ms) ? TimeSpan.FromMilliseconds(ms)
+                        : TimeSpan.TryParse(s, CultureInfo.InvariantCulture, out var ts) ? ts
+                        : TimeSpan.Zero
                 ),
             };
 

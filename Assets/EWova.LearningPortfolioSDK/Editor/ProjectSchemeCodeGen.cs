@@ -262,8 +262,7 @@ namespace EWova.LearningPortfolio.Editor
 
         /// <summary>
         /// 後端 FieldType → C# 型別。
-        /// duration_* 刻意對到 int 而不是 TimeSpan：後端 / 後台把這些欄位當「秒數 / 分鐘數 / 毫秒數」的純數字，
-        /// 而 SheetHelper 的 TimeSpan 會寫成 "00:05:00"，後台摘要算不出來、顯示也會變成原字串。
+        /// duration_* 一律對到 TimeSpan：SheetHelper 統一存成毫秒數，秒 / 分鐘 / 毫秒只是顯示單位。
         /// </summary>
         internal static (string type, string note) MapFieldType(string fieldType)
         {
@@ -272,9 +271,9 @@ namespace EWova.LearningPortfolio.Editor
                 case "number": return ("int", null);
                 case "percentage": return ("float", "百分比數值，85 = 85%");
                 case "boolean": return ("bool", null);
-                case "duration_seconds": return ("int", "秒");
-                case "duration_minutes": return ("int", "分鐘");
-                case "duration_ms": return ("int", "毫秒");
+                case "duration_seconds": return ("TimeSpan", "以秒顯示");
+                case "duration_minutes": return ("TimeSpan", "以分鐘顯示");
+                case "duration_ms": return ("TimeSpan", "以毫秒顯示");
                 case "datetime_offset": return ("DateTimeOffset", null);
                 case "string":
                 default: return ("string", null);

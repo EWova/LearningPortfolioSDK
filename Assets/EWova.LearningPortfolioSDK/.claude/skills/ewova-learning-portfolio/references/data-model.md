@@ -220,6 +220,12 @@ with round-trippable formatting. `enum` fields are also round-trippable (formatt
 parsed via `Enum.Parse`); any other unregistered type throws `NotSupportedException` from both
 `FormatAny` and `ParseAny` — there is no `Convert.ChangeType` fallback.
 
+`TimeSpan` is stored as a plain millisecond count (rounded, e.g. 90 s → `"90000"`) regardless of which
+`duration_*` field type the column has — seconds/minutes/ms are only the display unit, and the default
+chart renderer divides the stored ms accordingly. Use `TimeSpan` for every `duration_*` column (the
+Profile Inspector's C# Scheme generator does). Parsing still accepts the legacy `"c"` format
+(`"1.02:03:04"`) written by older SDK versions.
+
 Use `DateTimeOffset`, not `DateTime`, for date/time `[Column]` fields — `DateTime` throws from
 `FormatAny` (it can't preserve an explicit UTC offset). `ParseAny` still accepts a `DateTime`-typed
 field for reading back pre-existing data (logs an error and treats the stored value as local time), but

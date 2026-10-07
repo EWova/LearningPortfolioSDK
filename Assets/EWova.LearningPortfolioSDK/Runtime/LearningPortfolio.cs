@@ -248,11 +248,12 @@ namespace EWova.LearningPortfolio
                     overrideAlignment = TMPro.TextAlignmentOptions.Right;
                     break;
 
+                // duration_* 儲存值一律是毫秒數，FieldType 只決定顯示單位
                 case FieldType.DurationSeconds:
                     if (SheetHelper.TryParseAny<double>(text, out var dSec))
                     {
                         var durationSCol = isReadonly ? READONLY : NUMBER;
-                        labelText = $"<color={durationSCol}>{dSec.ToString("0.##")}</color> <color={UNIT}>s</color>";
+                        labelText = $"<color={durationSCol}>{(dSec / 1000).ToString("0.##")}</color> <color={UNIT}>s</color>";
                         overrideAlignment = TMPro.TextAlignmentOptions.Right;
                     }
                     else goto default;
@@ -262,7 +263,7 @@ namespace EWova.LearningPortfolio
                     if (SheetHelper.TryParseAny<double>(text, out var dMin))
                     {
                         var durationMCol = isReadonly ? READONLY : NUMBER;
-                        labelText = $"<color={durationMCol}>{dMin.ToString("0.##")}</color> <color={UNIT}>m</color>";
+                        labelText = $"<color={durationMCol}>{(dMin / 60000).ToString("0.##")}</color> <color={UNIT}>m</color>";
                         overrideAlignment = TMPro.TextAlignmentOptions.Right;
                     }
                     else goto default;
