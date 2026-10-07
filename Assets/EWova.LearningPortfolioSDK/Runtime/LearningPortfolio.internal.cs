@@ -1081,7 +1081,11 @@ namespace EWova.LearningPortfolio
                                 OverrideAlignment = display.OverrideAlignment,
                             };
                         }).ToArray(),
-                        CellsSummaryLabel = _column.Cells.Any() ? _column.CellsSummary : null,
+                        // 總計是後端加總的原始數值（duration_* 為毫秒），與儲存格走同一個 renderer 換算顯示；
+                        // 空字串仍要保留（非 null 才會顯示總計列）
+                        CellsSummaryLabel = _column.Cells.Any()
+                            ? ChartCellViewRenderer((_column.IsReadOnly, _column.FieldType, _column.CellsSummary)).LabelText ?? string.Empty
+                            : null,
                     }).ToArray()
                 };
                 plane.AddPage(page.Label, content);

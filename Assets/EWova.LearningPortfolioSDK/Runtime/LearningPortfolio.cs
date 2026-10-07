@@ -248,32 +248,15 @@ namespace EWova.LearningPortfolio
                     overrideAlignment = TMPro.TextAlignmentOptions.Right;
                     break;
 
-                // duration_* 儲存值一律是毫秒數，FieldType 只決定顯示單位
+                // duration_* 儲存值一律是毫秒數，FieldType 只決定顯示到哪個最小單位
                 case FieldType.DurationSeconds:
-                    if (SheetHelper.TryParseAny<double>(text, out var dSec))
-                    {
-                        var durationSCol = isReadonly ? READONLY : NUMBER;
-                        labelText = $"<color={durationSCol}>{(dSec / 1000).ToString("0.##")}</color> <color={UNIT}>s</color>";
-                        overrideAlignment = TMPro.TextAlignmentOptions.Right;
-                    }
-                    else goto default;
-                    break;
-
                 case FieldType.DurationMinutes:
-                    if (SheetHelper.TryParseAny<double>(text, out var dMin))
-                    {
-                        var durationMCol = isReadonly ? READONLY : NUMBER;
-                        labelText = $"<color={durationMCol}>{(dMin / 60000).ToString("0.##")}</color> <color={UNIT}>m</color>";
-                        overrideAlignment = TMPro.TextAlignmentOptions.Right;
-                    }
-                    else goto default;
-                    break;
-
                 case FieldType.DurationMilliseconds:
-                    if (SheetHelper.TryParseAny<double>(text, out var dMs))
+                    // 負數 / 超大值是壞資料，照原樣顯示
+                    if (SheetHelper.TryParseAny<double>(text, out var durationMs) && durationMs >= 0 && durationMs < 1e15)
                     {
-                        var durationMsCol = isReadonly ? READONLY : NUMBER;
-                        labelText = $"<color={durationMsCol}>{dMs.ToString("0.##")}</color> <color={UNIT}>ms</color>";
+                        var durationCol = isReadonly ? READONLY : NUMBER;
+                        labelText = FormatDuration(durationMs, fieldType, durationCol, UNIT);
                         overrideAlignment = TMPro.TextAlignmentOptions.Right;
                     }
                     else goto default;
@@ -291,6 +274,34 @@ namespace EWova.LearningPortfolio
             }
 
             return new ChartCellDisplay(labelText, overrideAlignment);
+        }
+
+        /// <summary>
+        /// 毫秒數 → 「1h 30m 5s」。<paramref name="fieldType"/> 決定顯示到哪個最小單位（分 / 秒 / 毫秒，以下捨去），
+        /// 值為 0 的單位省略；全部為 0 時顯示最小單位的 0（例如「0s」）。小時不進位成天。
+        /// </summary>
+        private static string FormatDuration(double totalMs, FieldType fieldType, string numberColor, string unitColor)
+        {
+            long smallestUnitMs = fieldType switch
+            {
+                FieldType.DurationMinutes => 60_000,
+                FieldType.DurationSeconds => 1_000,
+                _ => 1,
+            };
+            long remainingMs = (long)(totalMs / smallestUnitMs) * smallestUnitMs;
+
+            var parts = new List<string>();
+            foreach (var (unitMs, unit) in new (long, string)[] { (3_600_000, "h"), (60_000, "m"), (1_000, "s"), (1, "ms") })
+            {
+                if (unitMs < smallestUnitMs)
+                    break;
+
+                long value = remainingMs / unitMs;
+                remainingMs %= unitMs;
+                if (value > 0 || (parts.Count == 0 && unitMs == smallestUnitMs))
+                    parts.Add($"<color={numberColor}>{value}</color><color={unitColor}>{unit}</color>");
+            }
+            return string.Join(" ", parts);
         }
 
         public static event Action<UserData> OnUserLogin;

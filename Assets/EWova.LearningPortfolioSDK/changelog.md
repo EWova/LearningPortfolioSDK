@@ -4,7 +4,8 @@
 - `[Column]` 可標在 setter 為 `private` 的 public 屬性上，`SheetHelper` 讀取時以反射寫入，適合後端計算的唯讀欄位
 ### Changed
 - **(Breaking)** `SheetHelper` 的 `TimeSpan` 改為統一存成毫秒數（如 90 秒 → `"90000"`），不再輸出 `"c"` 格式 `"00:01:30"`；讀取仍相容舊格式（既有資料由後端協助轉換）
-- `duration_seconds` / `duration_minutes` / `duration_ms` 欄位的儲存值統一為毫秒數，欄位型別只決定顯示單位；`ProjectRecordShower` 預設圖表依此換算顯示
+- `duration_seconds` / `duration_minutes` / `duration_ms` 欄位的儲存值統一為毫秒數，欄位型別只決定顯示到哪個最小單位；`ProjectRecordShower` 預設圖表顯示為「1h 30m 5s」格式
+- `ProjectRecordShower` 圖表的總計列改為也經過 `LearningPortfolio.ChartCellViewRenderer` 換算顯示（原為後端回傳的原始加總數值）
 - C# Scheme 產生器的 `duration_*` 欄位改為產生 `TimeSpan`（原為 `int`）
 ## [2026.10.2] - 2026-10-07
 ### Changed
