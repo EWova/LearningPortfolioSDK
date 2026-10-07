@@ -1,5 +1,5 @@
 # Changelog
-## [Unreleased]
+## [2026.10.3] - 2026-10-07
 ### Added
 - `[Column]` 可標在 setter 為 `private` 的 public 屬性上，`SheetHelper` 讀取時以反射寫入，適合後端計算的唯讀欄位
 ### Changed
