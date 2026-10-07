@@ -219,7 +219,7 @@ namespace EWova.LearningPortfolio.Editor
                 w.Line("/// </summary>");
                 w.Line($"public class {classNames.Take("OverviewPageLevelRow")}");
                 w.Open();
-                WriteColumns(w, overview.Columns);
+                WriteColumns(w, overview.Columns, isOverview: true);
                 w.Close();
                 w.Line();
             }
@@ -247,16 +247,31 @@ namespace EWova.LearningPortfolio.Editor
             }
         }
 
-        private static void WriteColumns(CodeWriter w, List<ProjectSchemeColumnJson> columns)
+        /// <summary>總覽頁由後端自動刷新的欄位（後端認的是名稱，見 PortfolioService.updateOverviewPage）</summary>
+        private const string OverviewLevelColumnLabel = "關卡";
+        private const string OverviewScoreColumnLabel = "分數";
+
+        private static void WriteColumns(CodeWriter w, List<ProjectSchemeColumnJson> columns, bool isOverview = false)
         {
             // 欄位名不可與類別裡既有成員（Level）撞名
             var names = new UniqueNames("Level");
             foreach (var c in columns.OrderBy(c => c.SortOrder))
             {
+                // 總覽頁「關卡」= 各關卡頁名稱，由後端填，列 index 已由 OverviewRowIndex 表示，不產生
+                if (isOverview && c.Label == OverviewLevelColumnLabel)
+                    continue;
+
+                // 總覽頁「分數」= 各關卡分數加總，由後端計算，只能讀
+                var isBackendComputed = isOverview && c.Label == OverviewScoreColumnLabel;
+
                 var (type, note) = MapFieldType(c.FieldType);
-                var summary = Xml(c.Label) + (note != null ? $"（{note}）" : "") + (c.IsReadOnly ? " — 唯讀" : "");
+                var summary = Xml(c.Label) + (note != null ? $"（{note}）" : "")
+                    + (isBackendComputed ? " — 唯讀，由後端加總各關卡分數" : c.IsReadOnly ? " — 唯讀" : "");
+                var name = names.Take(Identifier.Sanitize(c.Label, $"Column{c.SortOrder}"));
                 w.Line($"/// <summary>{summary}</summary>");
-                w.Line($"[Column({Literal(c.Label)})] public {type} {names.Take(Identifier.Sanitize(c.Label, $"Column{c.SortOrder}"))};");
+                w.Line(isBackendComputed
+                    ? $"[Column({Literal(c.Label)})] public {type} {name} {{ get; private set; }}"
+                    : $"[Column({Literal(c.Label)})] public {type} {name};");
             }
         }
 

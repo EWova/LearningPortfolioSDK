@@ -215,6 +215,17 @@ MyRecord readBack = new MyRecord();
 SheetHelper.ReadFromRow(someRow, ref readBack);
 ```
 
+`[Column]` also works on public properties whose setter is private — `SheetHelper` sets them through
+reflection, so a value the backend computes can be read into the object but not assigned by game code
+(the generated `OverviewPageLevelRow` uses this for the overview page's backend-summed `分數` column):
+
+```csharp
+[Column("分數")] public int 分數 { get; private set; }
+```
+
+A `[Column]` property without a setter (or without a public getter) throws `NotSupportedException` when
+the type is first mapped.
+
 `SheetHelper.TypeFormatters` covers `bool/byte/char/double/int/float/decimal/string/DateTimeOffset/TimeSpan`
 with round-trippable formatting. `enum` fields are also round-trippable (formatted via `ToString()`,
 parsed via `Enum.Parse`); any other unregistered type throws `NotSupportedException` from both

@@ -1,5 +1,7 @@
 # Changelog
 ## [Unreleased]
+### Added
+- `[Column]` 可標在 setter 為 `private` 的 public 屬性上，`SheetHelper` 讀取時以反射寫入，適合後端計算的唯讀欄位
 ### Changed
 - **(Breaking)** `SheetHelper` 的 `TimeSpan` 改為統一存成毫秒數（如 90 秒 → `"90000"`），不再輸出 `"c"` 格式 `"00:01:30"`；讀取仍相容舊格式（既有資料由後端協助轉換）
 - `duration_seconds` / `duration_minutes` / `duration_ms` 欄位的儲存值統一為毫秒數，欄位型別只決定顯示單位；`ProjectRecordShower` 預設圖表依此換算顯示
@@ -11,6 +13,7 @@
 ### Added
 - `LearningPortfolioProfile` Inspector 新增「C# Scheme」區塊：API Key 驗證成功後，可依後台學習歷程樣板（頁面 / 欄位 / 進度樹）一鍵產生 `ProjectScheme.cs`，並可選擇輸出位置（需後端 `GET /api/projects/{projectId}/scheme`）
   - 產出 `ProgressNode` + `ProgressNodeMap`、`Page`、`Level`、`OverviewRowIndex`、總覽頁與各關卡頁的 `[Column]` 資料列類別，以及 `ProjectId` / `SchemeHash` 常數
+  - 總覽頁的 `OverviewPageLevelRow` 不含後端自動填的「關卡」欄位；「分數」欄位由後端加總各關卡分數，產生為 `{ get; private set; }` 唯讀屬性
   - 產出為 `partial class`，自訂擴充請寫在另一個檔案；重新產生時會比對 `SchemeHash`，顯示後台樣板是否已變更
   - 覆蓋非產生器建立的既有檔案（例如手寫的 `ProjectScheme.cs`）前會先確認
   - 欄位型別對應：`number` → `int`、`percentage` → `float`、`boolean` → `bool`、`datetime_offset` → `DateTimeOffset`、`duration_*` → `int`（秒 / 分 / 毫秒數值，與後台統計一致）、其餘 → `string`

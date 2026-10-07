@@ -6,7 +6,10 @@ using System.Reflection;
 
 namespace EWova.LearningPortfolio
 {
-    [AttributeUsage(AttributeTargets.Field, Inherited = true, AllowMultiple = false)]
+    /// <summary>
+    /// 標記對應到頁面欄位的成員。可用在 public 欄位，或 public 屬性（setter 可為 private，例如後端計算的唯讀欄位）。
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
     public class ColumnAttribute : Attribute
     {
         public string CustomLabel { get; private set; }
@@ -170,9 +173,9 @@ namespace EWova.LearningPortfolio
                 throw new ArgumentNullException(nameof(targetPage));
 
             var mapping = RetrieveFieldMappings(sourceObj.GetType());
-            var valueByLabel = new Dictionary<string, string>(mapping.Fields.Length);
-            foreach (var (field, label) in mapping.Fields)
-                valueByLabel[label] = FormatAny(field.GetValue(sourceObj));
+            var valueByLabel = new Dictionary<string, string>(mapping.Members.Length);
+            foreach (var member in mapping.Members)
+                valueByLabel[member.Label] = FormatAny(member.GetValue(sourceObj));
 
             string[] columnLabels = targetPage.GetColumnsLabel();
             string[] result = new string[columnLabels.Length];
@@ -283,7 +286,7 @@ namespace EWova.LearningPortfolio
         {
             var mapping = RetrieveFieldMappings(typeof(T));
 
-            if (mapping.Fields.Length == 0)
+            if (mapping.Members.Length == 0)
                 throw new ArgumentException($"Type {typeof(T).FullName} has no fields with ColumnAttribute.");
 
             if (!mapping.LabelByFieldName.TryGetValue(fieldName, out var label))
@@ -292,14 +295,54 @@ namespace EWova.LearningPortfolio
             return label;
         }
 
+        /// <summary>
+        /// 標了 <see cref="ColumnAttribute"/> 的欄位或屬性（屬性的 setter 可為 private）
+        /// </summary>
+        private readonly struct ColumnMember
+        {
+            public readonly string Name;
+            public readonly Type Type;
+            public readonly string Label;
+            private readonly FieldInfo _field;
+            private readonly PropertyInfo _property;
+
+            public ColumnMember(FieldInfo field, string label)
+            {
+                Name = field.Name;
+                Type = field.FieldType;
+                Label = label;
+                _field = field;
+                _property = null;
+            }
+
+            public ColumnMember(PropertyInfo property, string label)
+            {
+                Name = property.Name;
+                Type = property.PropertyType;
+                Label = label;
+                _field = null;
+                _property = property;
+            }
+
+            public object GetValue(object obj) => _field != null ? _field.GetValue(obj) : _property.GetValue(obj);
+
+            public void SetValue(object obj, object value)
+            {
+                if (_field != null)
+                    _field.SetValue(obj, value);
+                else
+                    _property.SetValue(obj, value); // 反射可呼叫 private setter
+            }
+        }
+
         private readonly struct FieldMapping
         {
-            public readonly (FieldInfo field, string label)[] Fields;
+            public readonly ColumnMember[] Members;
             public readonly Dictionary<string, string> LabelByFieldName;
 
-            public FieldMapping((FieldInfo field, string label)[] fields, Dictionary<string, string> labelByFieldName)
+            public FieldMapping(ColumnMember[] members, Dictionary<string, string> labelByFieldName)
             {
-                Fields = fields;
+                Members = members;
                 LabelByFieldName = labelByFieldName;
             }
         }
@@ -312,12 +355,23 @@ namespace EWova.LearningPortfolio
                 var fields = type.GetFields()
                     .Select(f => (field: f, attr: Attribute.GetCustomAttribute(f, typeof(ColumnAttribute)) as ColumnAttribute))
                     .Where(x => x.attr != null)
-                    .Select(x => (x.field, label: x.attr.CustomLabel ?? x.field.Name))
-                    .ToArray();
+                    .Select(x => new ColumnMember(x.field, x.attr.CustomLabel ?? x.field.Name));
 
-                var labelByFieldName = fields.ToDictionary(f => f.field.Name, f => f.label);
+                var properties = type.GetProperties()
+                    .Select(p => (property: p, attr: Attribute.GetCustomAttribute(p, typeof(ColumnAttribute)) as ColumnAttribute))
+                    .Where(x => x.attr != null)
+                    .Select(x =>
+                    {
+                        if (x.property.GetGetMethod() == null || x.property.GetSetMethod(true) == null)
+                            throw new NotSupportedException(
+                                $"Property {type.FullName}.{x.property.Name} with ColumnAttribute must have a public getter and a setter (private is fine).");
+                        return new ColumnMember(x.property, x.attr.CustomLabel ?? x.property.Name);
+                    });
 
-                mapping = new FieldMapping(fields, labelByFieldName);
+                var members = fields.Concat(properties).ToArray();
+                var labelByFieldName = members.ToDictionary(m => m.Name, m => m.Label);
+
+                mapping = new FieldMapping(members, labelByFieldName);
                 s_typeFieldCache[type] = mapping;
             }
 
@@ -329,13 +383,13 @@ namespace EWova.LearningPortfolio
 
             var mapping = RetrieveFieldMappings(typeof(T));
 
-            foreach (var (field, label) in mapping.Fields)
+            foreach (var member in mapping.Members)
             {
-                if (!source.TryGetValue(label, out var strValue))
+                if (!source.TryGetValue(member.Label, out var strValue))
                     continue;
 
-                object value = ParseAny(field.FieldType, strValue);
-                field.SetValue(boxed, value);
+                object value = ParseAny(member.Type, strValue);
+                member.SetValue(boxed, value);
             }
 
             destinationObj = (T)boxed;
