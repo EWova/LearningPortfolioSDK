@@ -4,6 +4,6 @@ namespace EWova.LearningPortfolio
     internal static class PackageInfo
     {
         public const string Name = "com.ewova.learningportfoliosdk";
-        public const string Version = "2026.10.3";
+        public const string Version = "2026.10.4";
     }
 }

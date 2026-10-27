@@ -1,5 +1,5 @@
 # Changelog
-## [Unreleased]
+## [2026.10.4] - 2026-10-27
 ### Added
 - Windows 編輯器按下登入時，若 Editor Assemblies Compatibility Level 為 .NET Standard（無法註冊 DeepLink，網頁跳轉回 Unity 沒有反應），會跳出提示並可一鍵切換為 .NET Framework；此時 `EWovaLoginPlane` 的登入按鈕會保留可按
 - 打包 Windows 時，若 Standalone 的 Api Compatibility Level 為 .NET Standard，會跳出提示並可一鍵切換為 .NET Framework（套用後取消此次打包，需重新打包）；其他平台打包不檢查
