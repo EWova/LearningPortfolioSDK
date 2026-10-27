@@ -1,4 +1,10 @@
 # Changelog
+## [Unreleased]
+### Added
+- Windows 編輯器按下登入時，若 Editor Assemblies Compatibility Level 為 .NET Standard（無法註冊 DeepLink，網頁跳轉回 Unity 沒有反應），會跳出提示並可一鍵切換為 .NET Framework；此時 `EWovaLoginPlane` 的登入按鈕會保留可按
+- 打包 Windows 時，若 Standalone 的 Api Compatibility Level 為 .NET Standard，會跳出提示並可一鍵切換為 .NET Framework（套用後取消此次打包，需重新打包）；其他平台打包不檢查
+### Changed
+- 依賴 `com.ewova.core` 升級至 1.10.1：Windows 編輯器的 DeepLink 只看 Editor Assemblies Compatibility Level，Android 等平台使用 .NET Standard 時仍可在 Windows 編輯器跳轉登入
 ## [2026.10.3] - 2026-10-07
 ### Added
 - `[Column]` 可標在 setter 為 `private` 的 public 屬性上，`SheetHelper` 讀取時以反射寫入，適合後端計算的唯讀欄位

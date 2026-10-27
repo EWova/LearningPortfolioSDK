@@ -252,6 +252,12 @@ namespace EWova.LearningPortfolio
                 return;
             }
 
+#if UNITY_EDITOR_WIN
+            // Windows 編輯器因 Editor Assemblies Compatibility Level 不支援跳轉時，按登入提示切換設定
+            if (CurrentStatus == Status.NotSupportLogin && Authoring.LearningPortfolioApiCompatibilityGuard.PromptOnLogin())
+                return;
+#endif
+
             if (CurrentStatus != Status.CheckAvailabilityOK)
             {
                 if (Logger.WarnEnabled)
@@ -469,6 +475,14 @@ namespace EWova.LearningPortfolio
                 case Status.NotSupportLogin:
                     UI.LoginRoot.SetActive(true);
                     UI.NotSupportLoginRoot.SetActive(true);
+#if UNITY_EDITOR_WIN
+                    // 保留登入按鈕，按下時提示切換 Editor Assemblies Compatibility Level
+                    if (!Authoring.LearningPortfolioApiCompatibilityGuard.IsEditorAssembliesNetFramework)
+                    {
+                        UI.LoginButton.gameObject.SetActive(true);
+                        UI.LoginButton.interactable = true;
+                    }
+#endif
                     UI.LoginSkipButton.gameObject.SetActive(true);
                     UI.LoginSkipButton.interactable = true;
                     break;
