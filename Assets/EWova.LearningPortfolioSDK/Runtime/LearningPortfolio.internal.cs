@@ -128,9 +128,6 @@ namespace EWova.LearningPortfolio
                 try
                 {
                     AuthorizeViaBrowserOptions option = AuthorizeViaBrowserOptions.Default;
-#if UNITY_EDITOR_WIN
-                    Authoring.LearningPortfolioApiCompatibilityGuard.PromptOnLogin();
-#endif
 #if UNITY_EDITOR
                     if (Authoring.LearningPortfolioEditorPrefs.DisableForceLogin)
                     {

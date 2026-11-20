@@ -1,13 +1,13 @@
 {
   "name": "com.ewova.learningportfoliosdk",
-  "version": "2026.10.4",
+  "version": "2026.11.0",
   "displayName": "EWova.LearningPortfolioSDK",
   "description": "EWova 學習歷程",
   "author": {
     "name": "EWova"
   },
   "dependencies": {
-    "com.ewova.core": "1.10.1"
+    "com.ewova.core": "1.11.0"
   },
   "documentationUrl": "https://wiki.ewova.com/zh-tw/LearningPortfolio/2026/Tutorial",
   "changelogUrl": "https://github.com/EWova/LearningPortfolioSDK/blob/master/Assets/EWova.LearningPortfolioSDK/changelog.md",

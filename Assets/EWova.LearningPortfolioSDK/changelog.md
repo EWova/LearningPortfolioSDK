@@ -1,4 +1,7 @@
 # Changelog
+## [2026.11.0] - 2026-11-20
+### Changed
+- 依賴 `com.ewova.core` 升級至 1.11.0：Windows 不再需要 .NET Framework，移除 2026.10.4 加入的 Api Compatibility Level 切換提示（Windows 編輯器登入時與打包 Windows 時都不再提示）
 ## [2026.10.4] - 2026-10-27
 ### Added
 - Windows 編輯器按下登入時，若 Editor Assemblies Compatibility Level 為 .NET Standard（無法註冊 DeepLink，網頁跳轉回 Unity 沒有反應），會跳出提示並可一鍵切換為 .NET Framework；此時 `EWovaLoginPlane` 的登入按鈕會保留可按
